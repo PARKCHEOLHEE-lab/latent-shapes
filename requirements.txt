@@ -10,3 +10,4 @@ scikit-image==0.19.2
 pre-commit==3.7.0
 vscodedebugvisualizer==0.1.0
 tensorboard==2.16.2
+rtree==1.4.0
