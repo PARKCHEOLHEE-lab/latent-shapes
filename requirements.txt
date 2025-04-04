@@ -1,2 +1,12 @@
+matplotlib==3.7.2
+networkx==3.1
+numpy==1.25.1
+point_cloud_utils==0.30.4
+ray==2.9.0
+Shapely==2.0.5
+tqdm==4.66.1
+trimesh==3.23.5
+scikit-image==0.19.2
 pre-commit==3.7.0
-bpy==4.4.0
+vscodedebugvisualizer==0.1.0
+tensorboard==2.16.2
