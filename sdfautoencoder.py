@@ -43,17 +43,17 @@ class Decoder(nn.Module):
         self.decoder = nn.Sequential(
             nn.Linear(self.input_dim * 3 + self.latent_dim, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim, self.hidden_dim * 4),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim * 4, self.hidden_dim * 8),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim * 8, self.hidden_dim * 16),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim * 16, self.hidden_dim * 32),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim * 32, self.hidden_dim * 64),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
             nn.ReLU(),
-            nn.Linear(self.hidden_dim * 64, self.input_dim)
+            nn.Linear(self.hidden_dim, self.input_dim)
         )
 
     def forward(self, latent, xyz):
@@ -80,13 +80,14 @@ class Autoencoder(nn.Module):
 class SDFDataset(Dataset):
     def __init__(self, data_path):
         self.data_path = data_path
-        self.data = [torch.tensor(np.load(data_path)) for data_path in self.data_path]
 
     def __len__(self):
         return len(self.data_path)
 
     def __getitem__(self, idx):
-        return self.data[idx]
+        # Load data on-demand instead of loading all at once
+        data = torch.tensor(np.load(self.data_path[idx]))
+        return data
 
 
 
@@ -97,23 +98,37 @@ if __name__ == "__main__":
     data_path = [f for f in os.listdir("./") if f.endswith(".npy")]
     data_path.sort()
     
+    device = "cuda"
+
     dataset = SDFDataset(data_path)
-    dataloader = DataLoader(dataset, batch_size=len(data_path), shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=1, shuffle=True)
     
     autoencoder = Autoencoder(input_dim=32**3, latent_dim=3*8, hidden_dim=256)
+    autoencoder = autoencoder.to(device)
     
+    optimizer = torch.optim.AdamW(autoencoder.parameters(), lr=1e-4)
     loss_function = nn.L1Loss()
+
+    epochs = 1000
     
-    for i, data in enumerate(dataloader):
-        
-        xyz = data[:, :, :3].float()
-        sdf = data[:, :, 3].unsqueeze(-1).float()
-        
-        sdf_, latent = autoencoder(xyz)
+    
+    for epoch in range(1, epochs + 1):
+        for i, data in enumerate(dataloader):
+            
+            data = data.to(device)
+            
+            optimizer.zero_grad()
+            
+            xyz = data[:, :, :3].float()
+            sdf = data[:, :, 3].unsqueeze(-1).float()
+            
+            sdf_, latent = autoencoder(xyz)
 
-        assert sdf_.shape == sdf.shape
-        
-        print(data.shape)
-        break
-
-    pass
+            assert sdf_.shape == sdf.shape
+            
+            loss = loss_function(sdf_, sdf)
+            loss.backward()
+            
+            optimizer.step()
+            
+            print(loss.item())
