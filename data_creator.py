@@ -10,21 +10,25 @@ class DataCreator:
         self.data_path = data_path
         
     def create(self, map_z_to_y=True):
-        grid_size = 192  # grid size 설정
+        grid_size = 192
         min_bound = -1
         max_bound = 1
         x = np.linspace(min_bound, max_bound, grid_size)
         y = np.linspace(min_bound, max_bound, grid_size)
         z = np.linspace(min_bound, max_bound, grid_size)
         xx, yy, zz = np.meshgrid(x, y, z, indexing='ij')
-        xyz = np.stack([xx, yy, zz], axis=-1).reshape(-1, 3)  # (grid_size^3, 3)
+        xyz = np.stack([xx, yy, zz], axis=-1).reshape(-1, 3)
+
+
+        class_number = 0
+        while True:
+            break
 
         count = 0
 
-        # 4. 각 점에 대해 Signed Distance 계산
-        # trimesh의 signed_distance 함수를 사용 (mesh의 내부면 음수, 외부면 양수)
-        for file in sorted(os.listdir(self.data_path)):
-            if count == 10:  # 샘플 10개만
+        data_list = sorted(os.listdir(self.data_path))
+        for file in data_list:
+            if count == 10:
                 break
 
             obj_path = os.path.join(self.data_path, file, "models", "model_normalized.obj")
@@ -43,45 +47,76 @@ class DataCreator:
                 if not mesh.is_watertight:
                     continue
             
+            # map z to y
+            if map_z_to_y:
+                mesh.vertices[:, [1, 2]] = mesh.vertices[:, [2, 1]]
+            
             # centralize the mesh
             mesh.vertices -= mesh.centroid
             assert np.allclose(mesh.centroid, 0)
             
             box_mesh = trimesh.creation.box(bounds=mesh.bounds)
-            box_mesh = box_mesh.subdivide()
-            box_mesh.vertices = mesh.nearest.on_surface(box_mesh.vertices)[0]
-                
+            box_mesh.vertices = box_mesh.vertices @ np.array([[0.95, 0, 0], [0, 0.95, 0], [0, 0, 1]])
+            box_mesh_subdivided = box_mesh.subdivide()
             
-            if map_z_to_y:
-                mesh.vertices[:, [1, 2]] = mesh.vertices[:, [2, 1]]  # z와 y를 교환
+            (min_x, min_y, min_z), (max_x, max_y, max_z) = box_mesh.bounds
+            
+            nearest_indices = []
+            for i, vertex in enumerate(box_mesh_subdivided.vertices):
+                is_bottom_edge_midpoint = (
+                    np.allclose(vertex, (np.array([min_x, min_y, min_z]) + np.array([max_x, min_y, min_z])) * 0.5) 
+                    or np.allclose(vertex, (np.array([min_x, max_y, min_z]) + np.array([max_x, max_y, min_z])) * 0.5) 
+                    or np.allclose(vertex, (np.array([min_x, min_y, min_z]) + np.array([max_x, max_y, min_z])) * 0.5) 
+                    or np.allclose(vertex, (np.array([min_x, min_y, min_z]) + np.array([min_x, max_y, min_z])) * 0.5) 
+                    or np.allclose(vertex, (np.array([max_x, min_y, min_z]) + np.array([max_x, max_y, min_z])) * 0.5)
+                )
+                
+                is_top_edge_midpoint = (
+                    np.allclose(vertex, (np.array([min_x, min_y, max_z]) + np.array([max_x, min_y, max_z])) * 0.5) 
+                    or np.allclose(vertex, (np.array([min_x, max_y, max_z]) + np.array([max_x, max_y, max_z])) * 0.5) 
+                    or np.allclose(vertex, (np.array([min_x, min_y, max_z]) + np.array([max_x, max_y, max_z])) * 0.5) 
+                    or np.allclose(vertex, (np.array([min_x, min_y, max_z]) + np.array([min_x, max_y, max_z])) * 0.5) 
+                    or np.allclose(vertex, (np.array([max_x, min_y, max_z]) + np.array([max_x, max_y, max_z])) * 0.5)
+                )
+                
+                if is_bottom_edge_midpoint or is_top_edge_midpoint:
+                    ray_origin = vertex
+                    ray_direction = np.array([0, 0, 1])
+                    
+                    # flip ray_direction
+                    if is_top_edge_midpoint:
+                        ray_direction *= -1
+                    
+                    locations, *_ = mesh.ray.intersects_location(
+                        ray_origins=[ray_origin], 
+                        ray_directions=[ray_direction]
+                    )
+                    
+                    # if the ray intersects the mesh, relocate the vertex to the intersection point
+                    if len(locations) > 0:
+                        new_vertex = locations[0]
+                        box_mesh_subdivided.vertices[i] = new_vertex
+                    else:
+                        # if not, relocate the vertex to the nearest point on the mesh
+                        nearest_indices.append(i)
 
-            # 5. 각 grid_point에 대해 SDF 값을 계산
+                else:
+                    nearest_indices.append(i)
+                
+            nearest_vertices = mesh.nearest.on_surface(box_mesh_subdivided.vertices[nearest_indices])[0]
+            box_mesh_subdivided.vertices[nearest_indices] = nearest_vertices
+
+            # compute sdf values
             sdf, *_ = pcu.signed_distance_to_mesh(xyz, mesh.vertices, mesh.faces)
             
             # latent vector와 함께 저장될 (x, y, z, sdf) 데이터를 생성
-            data = np.hstack([xyz, sdf[:, np.newaxis]])
+            # data = np.hstack([xyz, sdf[:, np.newaxis]])
             
-            start = time.time()
-            
-            # Reshape SDF values back to 3D grid for marching cubes
-            sdf_grid = sdf.reshape(grid_size, grid_size, grid_size)
-            
-            # Apply marching cubes to reconstruct the mesh
-            vertices, faces, normals, _ = measure.marching_cubes(sdf_grid, level=0)
-            
-            # Scale vertices back to original space
-            vertices = vertices * (max_bound - min_bound) / (grid_size - 1) + min_bound
-            
-            # Create a new mesh from the marching cubes result
-            reconstructed_mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
 
-            end = time.time()
-            print(f"Time taken: {end - start} seconds")
-            
             # Save both the SDF data and the reconstructed mesh
             # np.save(f"{count}.npy", data)
-            reconstructed_mesh.export(f"{count}_reconstructed.obj")
-            mesh.export(f"{count}_mesh.obj")
+            # reconstructed_mesh.export(f"{count}_reconstructed.obj")
+            # mesh.export(f"{count}_mesh.obj")
             
             count += 1
             
