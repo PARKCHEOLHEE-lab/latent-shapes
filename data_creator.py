@@ -121,7 +121,7 @@ class DataCreator:
 
         assert box_mesh_subdivided.vertices.shape == (26, 3)
 
-        return box_mesh_subdivided.vertices
+        return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
         
     def create(self, map_z_to_y: bool = True) -> None:
         grid_size = 192
@@ -168,7 +168,7 @@ class DataCreator:
             mesh = self._orient_mesh(mesh)
             
             # compute latent points
-            latent_points = self._compute_latent_points(mesh)
+            latent_points, faces = self._compute_latent_points(mesh)
 
             # compute sdf values
             sdf, *_ = pcu.signed_distance_to_mesh(xyz, mesh.vertices, mesh.faces)
@@ -178,6 +178,7 @@ class DataCreator:
                 "xyz": xyz,
                 "sdf": sdf,
                 "latent_points": latent_points,
+                "faces": faces,
             }
             
             np.save(f"{class_number}.npy", data)
