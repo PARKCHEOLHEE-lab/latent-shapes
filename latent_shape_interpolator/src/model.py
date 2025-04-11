@@ -48,16 +48,31 @@ class SDFDataset(Dataset):
         return xyz, sdf, class_number, latent_points, faces
 
 
-class SDFDecoder(nn.Module):
-    def __init__(self, num_classes: int):
+class MultiVectorEmbedding(nn.Module):
+    def __init__(self, num_classes: int, num_latent_points: int):
         super().__init__()
 
         self.num_classes = num_classes
+        self.num_latent_points = num_latent_points
 
-        self.latent_points_embedding = nn.Embedding(num_classes, 26 * 3)
+        self.embedding = nn.Parameter(torch.randn(num_classes, num_latent_points, 3))
+        self.positional_encoding = None
+
+    def forward(self, class_number: torch.Tensor) -> torch.Tensor:
+        return self.embedding[class_number]
+
+
+class SDFDecoder(nn.Module):
+    def __init__(self, num_classes: int, num_latent_points: int):
+        super().__init__()
+
+        self.num_classes = num_classes
+        self.num_latent_points = num_latent_points
+
+        self.latent_points_embedding = MultiVectorEmbedding(num_classes, self.num_latent_points)
 
         self.main_1 = nn.Sequential(
-            nn.Linear(26 * 3 + 3, 512),
+            nn.Linear((self.num_latent_points + 1) * 3, 512),
             nn.ReLU(True),
             nn.Linear(512, 512),
             nn.ReLU(True),
@@ -69,7 +84,7 @@ class SDFDecoder(nn.Module):
         )
 
         self.main_2 = nn.Sequential(
-            nn.Linear(26 * 3 + 3 + 512, 512),
+            nn.Linear((self.num_latent_points + 1) * 3 + 512, 512),
             nn.ReLU(True),
             nn.Linear(512, 512),
             nn.ReLU(True),
@@ -82,12 +97,13 @@ class SDFDecoder(nn.Module):
 
     def forward(self, class_number, xyz, cxyz_1=None):
         if cxyz_1 is None:
-            cxyz_1 = torch.cat((self.latent_points_embedding(class_number), xyz), dim=1)
+            cxyz_1 = torch.cat((xyz.unsqueeze(1), self.latent_points_embedding(class_number)), dim=1)
+            cxyz_1 = cxyz_1.reshape(xyz.shape[0], -1)
 
         x1 = self.main_1(cxyz_1)
 
-        # skip connection
         cxyz_2 = torch.cat((x1, cxyz_1), dim=1)
+
         x2 = self.main_2(cxyz_2)
 
         return x2
