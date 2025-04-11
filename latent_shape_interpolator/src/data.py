@@ -1,7 +1,11 @@
 import os
+import torch
 import trimesh
 import numpy as np
 import point_cloud_utils as pcu
+
+from typing import List, Tuple
+from torch.utils.data import Dataset
 
 
 class DataCreator:
@@ -170,6 +174,47 @@ class DataCreator:
             )
 
             class_number += 1
+
+
+class SDFDataset(Dataset):
+    def __init__(self, data_path: List[str]):
+        self.data_path = data_path
+        self.total_length = 64**3 * len(data_path)
+        self.cumulative_length = [0] + [64**3 * i for i in range(1, len(data_path) + 1)]
+
+        self.max_sdf = -np.inf
+        self.min_sdf = np.inf
+        for data in data_path:
+            sdf = np.load(data)["sdf"]
+            self.max_sdf = max(self.max_sdf, sdf.max())
+            self.min_sdf = min(self.min_sdf, sdf.min())
+
+        assert self.max_sdf != -np.inf
+        assert self.min_sdf != np.inf
+
+    def __len__(self) -> int:
+        return self.total_length
+
+    def __getitem__(self, _idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+        file_idx = None
+        for file_idx, cumulative_length in enumerate(self.cumulative_length):
+            if _idx < cumulative_length:
+                file_idx -= 1
+                break
+
+        assert file_idx is not None
+
+        data = np.load(self.data_path[file_idx])
+
+        idx = _idx % 64**3
+
+        xyz = torch.tensor(data["xyz"][idx], dtype=torch.float32)
+        sdf = torch.tensor(data["sdf"][idx], dtype=torch.float32)
+        class_number = torch.tensor(data["class_number"], dtype=torch.long)
+        latent_points = torch.tensor(data["latent_points"], dtype=torch.float32)
+        faces = torch.tensor(data["faces"], dtype=torch.long)
+
+        return xyz, sdf, class_number, latent_points, faces
 
 
 if __name__ == "__main__":
