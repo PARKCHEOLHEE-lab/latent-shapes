@@ -61,6 +61,8 @@ class SDFDecoder(nn.Module):
             nn.Linear(self.configuration.HIDDEN_DIM, 1),
         )
 
+        self.to(self.configuration.DEVICE)
+
     def forward(self, class_number, xyz, cxyz_1=None):
         if cxyz_1 is None:
             cxyz_1 = torch.cat((xyz.unsqueeze(1), self.latent_points_embedding(class_number)), dim=1)
