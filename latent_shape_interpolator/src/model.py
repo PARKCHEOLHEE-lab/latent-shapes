@@ -101,8 +101,8 @@ if __name__ == "__main__":
     )
 
     for epoch in range(1, configuration.EPOCHS + 1):
-        for xyz_batch, sdf_batch, class_number_batch, latent_points_batch, faces_batch in dataloader:
-            sdf_decoder_optimizer.zero_grad()
+        for batch_index, data in enumerate(dataloader):
+            xyz_batch, sdf_batch, class_number_batch, latent_points_batch, faces_batch = data
 
             sdf_preds = sdf_decoder(class_number_batch, xyz_batch)
             sdf_preds = torch.clamp(sdf_preds, min=dataset.min_sdf, max=dataset.max_sdf)
@@ -113,9 +113,13 @@ if __name__ == "__main__":
             )
 
             loss = loss_sdf + loss_latent_points
+            loss /= configuration.ACCUMULATION_STEPS
 
             loss.backward()
-            sdf_decoder_optimizer.step()
+            if (batch_index + 1) % configuration.ACCUMULATION_STEPS == 0:
+                sdf_decoder_optimizer.zero_grad()
+                sdf_decoder_optimizer.step()
+                
 
             print(loss.item())
             break
