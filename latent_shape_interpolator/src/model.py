@@ -13,25 +13,17 @@ from latent_shape_interpolator.src.data import SDFDataset
 
 
 class MultiVectorEmbedding(nn.Module):
-    def __init__(self, num_classes: int, configuration: Configuration):
+    def __init__(self, num_classes: int, num_latent_points: int):
         super().__init__()
 
         self.num_classes = num_classes
-        self.configuration = configuration
+        self.num_latent_points = num_latent_points
 
-        self.embedding = nn.Parameter(torch.randn(num_classes, self.configuration.NUM_LATENT_POINTS, 3))
-        nn.init.uniform_(self.embedding.weight, -1.0, 1.0)
-
-        # self.positional_encoding_table = torch.zeros(self.configuration.NUM_LATENT_POINTS, 3)
-
-        # pos = torch.arange(0, self.configuration.NUM_LATENT_POINTS).unsqueeze(1)
-        # _2i = torch.arange(0, 3)[0::2]
-
-        # self.positional_encoding_table[:, 0::2] = torch.sin(pos / 10000 ** (_2i / 3))
-        # self.positional_encoding_table[:, 1::2] = torch.cos(pos / 10000 ** (_2i / 3))
+        self.multi_vector_embedding = nn.Parameter(torch.randn(self.num_classes, self.num_latent_points, 3))
+        nn.init.uniform_(self.multi_vector_embedding.data, -1.0, 1.0)
 
     def forward(self, class_number: torch.Tensor) -> torch.Tensor:
-        return self.embedding[class_number]
+        return self.multi_vector_embedding[class_number]
 
 
 class SDFDecoder(nn.Module):
