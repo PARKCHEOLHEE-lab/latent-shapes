@@ -1,56 +1,72 @@
+import os
+import sys
 import torch
 import torch.nn as nn
 
 from torch.utils.data import DataLoader
 
-from .data import SDFDataset  # FIXME
+if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+from latent_shape_interpolator.src.config import Configuration
+from latent_shape_interpolator.src.data import SDFDataset
 
 
 class MultiVectorEmbedding(nn.Module):
-    def __init__(self, num_classes: int, num_latent_points: int):
+    def __init__(self, num_classes: int, configuration: Configuration):
         super().__init__()
 
         self.num_classes = num_classes
-        self.num_latent_points = num_latent_points
+        self.configuration = configuration
 
-        self.embedding = nn.Parameter(torch.randn(num_classes, num_latent_points, 3))
-        self.positional_encoding = None
+        self.embedding = nn.Parameter(torch.randn(num_classes, self.configuration.NUM_LATENT_POINTS, 3))
+        nn.init.uniform_(self.embedding.weight, -1.0, 1.0)
+
+        # self.positional_encoding_table = torch.zeros(self.configuration.NUM_LATENT_POINTS, 3)
+
+        # pos = torch.arange(0, self.configuration.NUM_LATENT_POINTS).unsqueeze(1)
+        # _2i = torch.arange(0, 3)[0::2]
+
+        # self.positional_encoding_table[:, 0::2] = torch.sin(pos / 10000 ** (_2i / 3))
+        # self.positional_encoding_table[:, 1::2] = torch.cos(pos / 10000 ** (_2i / 3))
 
     def forward(self, class_number: torch.Tensor) -> torch.Tensor:
         return self.embedding[class_number]
 
 
 class SDFDecoder(nn.Module):
-    def __init__(self, num_classes: int, num_latent_points: int):
+    def __init__(self, num_classes: int, configuration: Configuration):
         super().__init__()
 
         self.num_classes = num_classes
-        self.num_latent_points = num_latent_points
+        self.configuration = configuration
 
-        self.latent_points_embedding = MultiVectorEmbedding(num_classes, self.num_latent_points)
+        self.latent_points_embedding = MultiVectorEmbedding(num_classes, self.configuration.NUM_LATENT_POINTS)
 
+        self.main_1_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
         self.main_1 = nn.Sequential(
-            nn.Linear((self.num_latent_points + 1) * 3, 512),
+            nn.Linear(self.main_1_in_features, self.configuration.HIDDEN_DIM),
             nn.ReLU(True),
-            nn.Linear(512, 512),
+            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
             nn.ReLU(True),
-            nn.Linear(512, 512),
+            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
             nn.ReLU(True),
-            nn.Linear(512, 512),
+            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
             nn.ReLU(True),
-            nn.Linear(512, 512),
+            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
         )
 
+        self.main_2_in_features = self.main_1_in_features + self.configuration.HIDDEN_DIM
         self.main_2 = nn.Sequential(
-            nn.Linear((self.num_latent_points + 1) * 3 + 512, 512),
+            nn.Linear(self.main_2_in_features, self.configuration.HIDDEN_DIM),
             nn.ReLU(True),
-            nn.Linear(512, 512),
+            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
             nn.ReLU(True),
-            nn.Linear(512, 512),
+            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
             nn.ReLU(True),
-            nn.Linear(512, 512),
+            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
             nn.ReLU(True),
-            nn.Linear(512, 1),
+            nn.Linear(self.configuration.HIDDEN_DIM, 1),
         )
 
     def forward(self, class_number, xyz, cxyz_1=None):
@@ -68,7 +84,7 @@ class SDFDecoder(nn.Module):
 
 
 if __name__ == "__main__":
-    import os
+    configuration = Configuration()
 
     data_path = [os.path.join("data-processed", f) for f in os.listdir("data-processed")]
     data_path.sort()
