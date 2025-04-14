@@ -35,7 +35,7 @@ class ModelConfiguration:
     ACCUMULATION_STEPS = 8
 
 
-class Configuration(ModelConfiguration):
+class Configuration(DataConfiguration, ModelConfiguration):
     def __init__(self):
         pass
 
