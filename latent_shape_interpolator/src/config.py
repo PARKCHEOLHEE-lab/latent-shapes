@@ -34,6 +34,12 @@ class ModelConfiguration:
     BATCH_SIZE = 64
     ACCUMULATION_STEPS = 8
 
+    HIDDEN_DIM = 512
+
+    DEVICE = "cuda"
+    if not torch.cuda.is_available():
+        DEVICE = "cpu"
+
 
 class Configuration(DataConfiguration, ModelConfiguration):
     def __init__(self):
