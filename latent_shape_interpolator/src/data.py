@@ -197,8 +197,8 @@ class DataCreator:
 
 
 class SDFDataset(Dataset):
-    def __init__(self, data_path: List[str], config: Configuration):
-        self.configuration = config
+    def __init__(self, data_path: List[str], configuration: Configuration):
+        self.configuration = configuration
         self.data_path = data_path
         self.total_length = self.configuration.GRID_SIZE**3 * len(data_path)
         self.cumulative_length = [0] + [self.configuration.GRID_SIZE**3 * i for i in range(1, len(data_path) + 1)]
@@ -234,6 +234,12 @@ class SDFDataset(Dataset):
         class_number = torch.tensor(data["class_number"], dtype=torch.long)
         latent_points = torch.tensor(data["latent_points"], dtype=torch.float32)
         faces = torch.tensor(data["faces"], dtype=torch.long)
+
+        xyz = xyz.to(self.configuration.DEVICE)
+        sdf = sdf.to(self.configuration.DEVICE)
+        class_number = class_number.to(self.configuration.DEVICE)
+        latent_points = latent_points.to(self.configuration.DEVICE)
+        faces = faces.to(self.configuration.DEVICE)
 
         return xyz, sdf, class_number, latent_points, faces
 
