@@ -80,42 +80,37 @@ class SDFDecoder(nn.Module):
 if __name__ == "__main__":
     configuration = Configuration()
 
-    data_path = [os.path.join("data-processed", f) for f in os.listdir("data-processed")]
+    data_path = []
+    for folder in os.listdir(configuration.DATA_PATH):
+        path = os.path.join(configuration.DATA_PATH, folder, configuration.DATA_NAME, f"{folder}.npz")
+        if os.path.exists(path):
+            data_path.append(path)
+
     data_path.sort()
 
-    device = "cuda"
+    dataset = SDFDataset(data_path=data_path, configuration=configuration)
+    dataloader = DataLoader(dataset=dataset, batch_size=configuration.BATCH_SIZE, shuffle=True)
 
-    dataset = SDFDataset(data_path)
-    dataloader = DataLoader(dataset, batch_size=64, shuffle=True)
-
-    sdf_decoder = SDFDecoder(num_classes=10)
-    sdf_decoder = sdf_decoder.to(device)
+    sdf_decoder = SDFDecoder(num_classes=10, configuration=configuration)
     sdf_decoder_optimizer = torch.optim.AdamW(
         [
-            {"params": sdf_decoder.latent_points_embedding.parameters(), "lr": 1e-3},
+            {"params": sdf_decoder.latent_points_embedding.parameters(), "lr": 1e-4},
             {"params": sdf_decoder.main_1.parameters(), "lr": 1e-5},
             {"params": sdf_decoder.main_2.parameters(), "lr": 1e-5},
         ],
     )
 
-    epochs = 1000
-    for epoch in range(1, epochs + 1):
+    for epoch in range(1, configuration.EPOCHS + 1):
         for xyz_batch, sdf_batch, class_number_batch, latent_points_batch, faces_batch in dataloader:
             sdf_decoder_optimizer.zero_grad()
 
-            xyz_batch = xyz_batch.to(device)
-            sdf_batch = sdf_batch.to(device)
-            class_number_batch = class_number_batch.to(device)
-            latent_points_batch = latent_points_batch.to(device)
-            faces_batch = faces_batch.to(device)
-
             sdf_preds = sdf_decoder(class_number_batch, xyz_batch)
             sdf_preds = torch.clamp(sdf_preds, min=dataset.min_sdf, max=dataset.max_sdf)
-            loss_sdf = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
 
-            latent_points_preds = sdf_decoder.latent_points_embedding(class_number_batch)
-            latent_points_target = latent_points_batch.reshape(xyz_batch.shape[0], -1)
-            loss_latent_points = torch.nn.functional.l1_loss(latent_points_preds, latent_points_target)
+            loss_sdf = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
+            loss_latent_points = torch.nn.functional.l1_loss(
+                sdf_decoder.latent_points_embedding(class_number_batch), latent_points_batch
+            )
 
             loss = loss_sdf + loss_latent_points
 
