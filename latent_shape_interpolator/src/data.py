@@ -1,16 +1,23 @@
 import os
+import sys
 import torch
 import trimesh
 import numpy as np
+import multiprocessing
 import point_cloud_utils as pcu
 
 from typing import List, Tuple
 from torch.utils.data import Dataset
 
+if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+
+from latent_shape_interpolator.src.config import Configuration
+
 
 class DataCreator:
-    def __init__(self, data_path: str):
-        self.data_path = data_path
+    def __init__(self, configuration: Configuration):
+        self.configuration = configuration
 
     def _map_mesh_z_to_y(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
         mapped_mesh = mesh.copy()
@@ -60,7 +67,7 @@ class DataCreator:
 
     def _compute_latent_points(self, mesh: trimesh.Trimesh) -> np.ndarray:
         box_mesh = trimesh.creation.box(bounds=mesh.bounds)
-        box_mesh.vertices = box_mesh.vertices @ np.array([[0.95, 0, 0], [0, 0.95, 0], [0, 0, 1]])
+        box_mesh.vertices = box_mesh.vertices @ self.configuration.SCALE_MATRIX
         box_mesh_subdivided = box_mesh.subdivide()
 
         (min_x, min_y, min_z), (max_x, max_y, max_z) = box_mesh.bounds
@@ -107,80 +114,94 @@ class DataCreator:
         nearest_vertices = mesh.nearest.on_surface(box_mesh_subdivided.vertices[nearest_indices])[0]
         box_mesh_subdivided.vertices[nearest_indices] = nearest_vertices
 
-        assert box_mesh_subdivided.vertices.shape == (26, 3)
+        assert box_mesh_subdivided.vertices.shape == (self.configuration.NUM_LATENT_POINTS, 3)
 
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
 
-    def create(self, map_z_to_y: bool = True) -> None:
-        os.makedirs("data-processed", exist_ok=True)
-
-        grid_size = 64
-        min_bound = -1
-        max_bound = 1
-        x = np.linspace(min_bound, max_bound, grid_size)
-        y = np.linspace(min_bound, max_bound, grid_size)
-        z = np.linspace(min_bound, max_bound, grid_size)
+    def _create_one(self, file: str, class_number: int, map_z_to_y: bool = True) -> None:
+        x = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
+        y = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
+        z = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
         xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
         xyz = np.stack([xx, yy, zz], axis=-1).reshape(-1, 3)
 
+        obj_path = os.path.join(
+            self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
+        )
+
+        mesh = trimesh.load(obj_path)
+        if isinstance(mesh, trimesh.Scene):
+            geo_list = []
+            for g in mesh.geometry.values():
+                geo_list.append(g)
+            mesh = trimesh.util.concatenate(geo_list)
+
+        if not mesh.is_watertight:
+            vertices, faces = pcu.make_mesh_watertight(
+                mesh.vertices, mesh.faces, resolution=self.configuration.WATERTIGHT_RESOLUTION
+            )
+
+            mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+
+            if not mesh.is_watertight:
+                return
+
+        # map z to y
+        if map_z_to_y:
+            mesh = self._map_mesh_z_to_y(mesh)
+
+        # centralize the mesh to the origin
+        mesh = self._centralize_mesh(mesh)
+
+        # orient the mesh
+        mesh = self._orient_mesh(mesh)
+
+        # compute latent points
+        latent_points, faces = self._compute_latent_points(mesh)
+
+        # compute sdf values
+        sdf, *_ = pcu.signed_distance_to_mesh(xyz, mesh.vertices, mesh.faces)
+
+        np.savez(
+            obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz"),
+            xyz=xyz,
+            sdf=sdf,
+            class_number=class_number,
+            latent_points=latent_points,
+            faces=faces,
+        )
+
+    def create(self, map_z_to_y: bool = True, use_multiprocessing: bool = True) -> None:
+        tasks: List[Tuple[str, int, bool]]
+        tasks = []
+
         class_number = 0
-
-        data_list = sorted(os.listdir(self.data_path))
+        data_list = sorted(os.listdir(self.configuration.DATA_PATH))
         for file in data_list:
-            print(file)
-
             if class_number == 10:
                 break
 
-            obj_path = os.path.join(self.data_path, file, "models", "model_normalized.obj")
-
-            mesh = trimesh.load(obj_path)
-            if isinstance(mesh, trimesh.Scene):
-                geo_list = []
-                for g in mesh.geometry.values():
-                    geo_list.append(g)
-                mesh = trimesh.util.concatenate(geo_list)
-
-            if not mesh.is_watertight:
-                vertices, faces = pcu.make_mesh_watertight(mesh.vertices, mesh.faces, resolution=50000)
-                mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-
-                if not mesh.is_watertight:
-                    continue
-
-            # map z to y
-            if map_z_to_y:
-                mesh = self._map_mesh_z_to_y(mesh)
-
-            # centralize the mesh to the origin
-            mesh = self._centralize_mesh(mesh)
-
-            # orient the mesh
-            mesh = self._orient_mesh(mesh)
-
-            # compute latent points
-            latent_points, faces = self._compute_latent_points(mesh)
-
-            # compute sdf values
-            sdf, *_ = pcu.signed_distance_to_mesh(xyz, mesh.vertices, mesh.faces)
-
-            np.savez(
-                f"data-processed/{file}.npz",
-                xyz=xyz,
-                sdf=sdf,
-                class_number=class_number,
-                latent_points=latent_points,
-                faces=faces,
-            )
-
+            tasks.append((file, class_number, map_z_to_y))
             class_number += 1
+
+        print("creating...")
+
+        if use_multiprocessing:
+            with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+                pool.starmap(self._create_one, tasks)
+        else:
+            for file, class_number, map_z_to_y in tasks:
+                self._create_one(file, class_number, map_z_to_y)
+
+        print("done!")
 
 
 class SDFDataset(Dataset):
-    def __init__(self, data_path: List[str]):
+    def __init__(self, data_path: List[str], config: Configuration):
+        self.configuration = config
         self.data_path = data_path
-        self.total_length = 64**3 * len(data_path)
-        self.cumulative_length = [0] + [64**3 * i for i in range(1, len(data_path) + 1)]
+        self.total_length = self.configuration.GRID_SIZE**3 * len(data_path)
+        self.cumulative_length = [0] + [self.configuration.GRID_SIZE**3 * i for i in range(1, len(data_path) + 1)]
 
         self.max_sdf = -np.inf
         self.min_sdf = np.inf
@@ -206,7 +227,7 @@ class SDFDataset(Dataset):
 
         data = np.load(self.data_path[file_idx])
 
-        idx = _idx % 64**3
+        idx = _idx % self.configuration.GRID_SIZE**3
 
         xyz = torch.tensor(data["xyz"][idx], dtype=torch.float32)
         sdf = torch.tensor(data["sdf"][idx], dtype=torch.float32)
@@ -218,5 +239,6 @@ class SDFDataset(Dataset):
 
 
 if __name__ == "__main__":
-    data_creator = DataCreator(data_path=os.path.join("data/03001627"))
+    configuration = Configuration()
+    data_creator = DataCreator(configuration=configuration)
     data_creator.create()
