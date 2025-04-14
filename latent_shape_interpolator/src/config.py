@@ -9,8 +9,22 @@ class DataConfiguration:
     MIN_BOUND = -1
     MAX_BOUND = 1
 
-    DATA_DIR = ""
-    DATA_PATH = ""
+    DATA_DIR = os.path.abspath(os.path.join(__file__, "../../data"))
+    DATA_PATH = os.path.join(DATA_DIR, "03001627")
+    DATA_NAME = "models"
+    DATA_NAME_OBJ = "model_normalized.obj"
+
+    SCALE_MATRIX = np.array(
+        [
+            [0.95, 0, 0],
+            [0, 0.95, 0],
+            [0, 0, 1],
+        ]
+    )
+
+    WATERTIGHT_RESOLUTION = 50000
+
+    NUM_LATENT_POINTS = 26
 
 
 class ModelConfiguration:
