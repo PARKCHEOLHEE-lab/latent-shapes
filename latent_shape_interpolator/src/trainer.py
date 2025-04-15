@@ -62,8 +62,8 @@ class Trainer:
 
             loss.backward()
             if (batch_index + 1) % self.configuration.ACCUMULATION_STEPS == 0:
-                self.sdf_decoder_optimizer.zero_grad()
                 self.sdf_decoder_optimizer.step()
+                self.sdf_decoder_optimizer.zero_grad()
 
             losses.append(loss.item() * self.configuration.ACCUMULATION_STEPS)
             losses_sdf.append(loss_sdf.item() * self.configuration.ACCUMULATION_STEPS)
