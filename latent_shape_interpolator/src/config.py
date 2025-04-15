@@ -16,9 +16,9 @@ class DataConfiguration:
 
     SCALE_MATRIX = np.array(
         [
-            [0.95, 0, 0],
-            [0, 0.95, 0],
-            [0, 0, 1],
+            [0.95, 0.00, 0.00],
+            [0.00, 0.95, 0.00],
+            [0.00, 0.00, 1.00],
         ]
     )
 
@@ -31,8 +31,8 @@ class ModelConfiguration:
     EPOCHS = 5000
     SEED = 777
 
-    BATCH_SIZE = 64
-    ACCUMULATION_STEPS = 8
+    BATCH_SIZE = 256
+    ACCUMULATION_STEPS = 4
 
     HIDDEN_DIM = 512
 
@@ -57,7 +57,7 @@ class Configuration(DataConfiguration, ModelConfiguration):
 
         return config
 
-    LOG_DIR = os.path.abspath(os.path.join(__file__, "../../runs"))
+    LOG_DIR_BASE = os.path.abspath(os.path.join(__file__, "../../runs"))
 
     @staticmethod
     def set_seed(seed: int = ModelConfiguration.SEED):
