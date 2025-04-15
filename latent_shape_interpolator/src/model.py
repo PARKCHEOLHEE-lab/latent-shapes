@@ -3,13 +3,11 @@ import sys
 import torch
 import torch.nn as nn
 
-from torch.utils.data import DataLoader
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
 from latent_shape_interpolator.src.config import Configuration
-from latent_shape_interpolator.src.data import SDFDataset
 
 
 class MultiVectorEmbedding(nn.Module):
@@ -75,52 +73,3 @@ class SDFDecoder(nn.Module):
         x2 = self.main_2(cxyz_2)
 
         return x2
-
-
-if __name__ == "__main__":
-    configuration = Configuration()
-
-    data_path = []
-    for folder in os.listdir(configuration.DATA_PATH):
-        path = os.path.join(configuration.DATA_PATH, folder, configuration.DATA_NAME, f"{folder}.npz")
-        if os.path.exists(path):
-            data_path.append(path)
-
-    data_path.sort()
-
-    dataset = SDFDataset(data_path=data_path, configuration=configuration)
-    dataloader = DataLoader(dataset=dataset, batch_size=configuration.BATCH_SIZE, shuffle=True)
-
-    sdf_decoder = SDFDecoder(num_classes=10, configuration=configuration)
-    sdf_decoder_optimizer = torch.optim.AdamW(
-        [
-            {"params": sdf_decoder.latent_points_embedding.parameters(), "lr": 1e-4},
-            {"params": sdf_decoder.main_1.parameters(), "lr": 1e-5},
-            {"params": sdf_decoder.main_2.parameters(), "lr": 1e-5},
-        ],
-    )
-
-    for epoch in range(1, configuration.EPOCHS + 1):
-        for batch_index, data in enumerate(dataloader):
-            xyz_batch, sdf_batch, class_number_batch, latent_points_batch, faces_batch = data
-
-            sdf_preds = sdf_decoder(class_number_batch, xyz_batch)
-            sdf_preds = torch.clamp(sdf_preds, min=dataset.min_sdf, max=dataset.max_sdf)
-
-            loss_sdf = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
-            loss_latent_points = torch.nn.functional.l1_loss(
-                sdf_decoder.latent_points_embedding(class_number_batch), latent_points_batch
-            )
-
-            loss = loss_sdf + loss_latent_points
-            loss /= configuration.ACCUMULATION_STEPS
-
-            loss.backward()
-            if (batch_index + 1) % configuration.ACCUMULATION_STEPS == 0:
-                sdf_decoder_optimizer.zero_grad()
-                sdf_decoder_optimizer.step()
-                
-
-            print(loss.item())
-            break
-        break
