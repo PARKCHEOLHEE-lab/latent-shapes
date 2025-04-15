@@ -5,7 +5,7 @@ import torch
 import datetime
 
 from tqdm import tqdm
-from typing import List
+from typing import List, Tuple, Optional
 from torch.utils.data import DataLoader, Subset
 from torch.utils.tensorboard import SummaryWriter
 
@@ -24,12 +24,15 @@ class Trainer:
         sdf_decoder_optimizer: torch.optim.Optimizer,
         sdf_dataloader: DataLoader,
         configuration: Configuration,
-        log_dir: str = None,
+        subset_count: int = 1,
+        log_dir: Optional[str] = None,
     ):
         self.sdf_decoder = sdf_decoder
         self.sdf_decoder_optimizer = sdf_decoder_optimizer
         self.sdf_dataloader = sdf_dataloader
         self.configuration = configuration
+
+        self.dataloaders = self._divide_dataloader(subset_count, self.sdf_dataloader)
 
         self.summary_writer = None
         if log_dir is None:
@@ -40,7 +43,7 @@ class Trainer:
                 )
             )
 
-    def _create_subsets(self, subset_count: int, dataloader: DataLoader) -> List[Subset]:
+    def _divide_dataloader(self, subset_count: int, sdf_dataloader: DataLoader) -> List[DataLoader]:
         """Divide the dataloader to subsets with the number of `subset_count`
 
         Args:
@@ -51,41 +54,38 @@ class Trainer:
             List[Subset]: subsets
         """
 
-        dataloader_subsets = [dataloader]
+        dataloaders = [sdf_dataloader]
         if subset_count > 1:
-            train_loader_dataset_size = len(dataloader.dataset)
+            train_loader_dataset_size = len(sdf_dataloader.dataset)
             train_loader_indices = torch.randperm(train_loader_dataset_size)
 
             subset_divider = train_loader_dataset_size // subset_count
-            dataloader_subsets = []
-            for subset_count in range(subset_count):
-                subset_start = subset_count * subset_divider
-                subset_end = (subset_count + 1) * subset_divider
-
-                if subset_count == subset_count - 1:
-                    subset_end = train_loader_dataset_size
-
-                dataloader_subset = Subset(dataloader.dataset, train_loader_indices[subset_start:subset_end])
-
+            dataloaders = []
+            for count in range(subset_count):
+                each_subset_start = count * subset_divider
+                each_subset_end = (count + 1) * subset_divider
+                each_subset = Subset(sdf_dataloader.dataset, train_loader_indices[each_subset_start:each_subset_end])
                 each_dataloader = DataLoader(
-                    dataset=dataloader_subset,
-                    batch_size=dataloader.batch_size,
+                    dataset=each_subset,
+                    batch_size=sdf_dataloader.batch_size,
                     num_workers=int(os.cpu_count() * 0.7),
                     shuffle=True,
                     drop_last=True,
                     persistent_workers=True,
                 )
 
-                dataloader_subsets.append(each_dataloader)
+                dataloaders.append(each_dataloader)
 
-        return dataloader_subsets
+        return dataloaders
 
-    def _train_each_epoch(self) -> None:
+    def _train_each_epoch(self, subset: DataLoader) -> Tuple[float, float, float]:
+        """ """
+
         losses = []
         losses_sdf = []
         losses_latent_points = []
 
-        for batch_index, data in tqdm(enumerate(self.sdf_dataloader), total=len(self.sdf_dataloader)):
+        for batch_index, data in tqdm(enumerate(subset), total=len(subset)):
             xyz_batch, sdf_batch, class_number_batch, latent_points_batch, faces_batch = data
 
             sdf_preds = self.sdf_decoder(class_number_batch, xyz_batch)
@@ -118,7 +118,9 @@ class Trainer:
 
     def train(self) -> None:
         for epoch in tqdm(range(1, self.configuration.EPOCHS + 1)):
-            losses_mean, losses_sdf_mean, losses_latent_points_mean = self._train_each_epoch()
+            losses_mean, losses_sdf_mean, losses_latent_points_mean = self._train_each_epoch(
+                self.dataloaders[epoch % len(self.dataloaders)]
+            )
 
             if self.summary_writer is not None:
                 self.summary_writer.add_scalar("losses_mean", losses_mean, epoch)
