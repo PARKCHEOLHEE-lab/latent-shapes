@@ -5,7 +5,8 @@ import torch
 import datetime
 
 from tqdm import tqdm
-from torch.utils.data import DataLoader
+from typing import List
+from torch.utils.data import DataLoader, Subset
 from torch.utils.tensorboard import SummaryWriter
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
@@ -38,6 +39,46 @@ class Trainer:
                     datetime.datetime.now(pytz.timezone("Asia/Seoul")).strftime("%m-%d-%Y__%H-%M-%S"),
                 )
             )
+
+    def _create_subsets(self, subset_count: int, dataloader: DataLoader) -> List[Subset]:
+        """Divide the dataloader to subsets with the number of `subset_count`
+
+        Args:
+            subset_count (int): count to divide
+            dataloader (DataLoader): dataloader
+
+        Returns:
+            List[Subset]: subsets
+        """
+
+        dataloader_subsets = [dataloader]
+        if subset_count > 1:
+            train_loader_dataset_size = len(dataloader.dataset)
+            train_loader_indices = torch.randperm(train_loader_dataset_size)
+
+            subset_divider = train_loader_dataset_size // subset_count
+            dataloader_subsets = []
+            for subset_count in range(subset_count):
+                subset_start = subset_count * subset_divider
+                subset_end = (subset_count + 1) * subset_divider
+
+                if subset_count == subset_count - 1:
+                    subset_end = train_loader_dataset_size
+
+                dataloader_subset = Subset(dataloader.dataset, train_loader_indices[subset_start:subset_end])
+
+                each_dataloader = DataLoader(
+                    dataset=dataloader_subset,
+                    batch_size=dataloader.batch_size,
+                    num_workers=int(os.cpu_count() * 0.7),
+                    shuffle=True,
+                    drop_last=True,
+                    persistent_workers=True,
+                )
+
+                dataloader_subsets.append(each_dataloader)
+
+        return dataloader_subsets
 
     def _train_each_epoch(self) -> None:
         losses = []
