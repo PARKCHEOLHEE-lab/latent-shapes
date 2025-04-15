@@ -2,3 +2,4 @@ __pycache__/
 debugvisualizer/
 data/
 *.npz
+runs/
