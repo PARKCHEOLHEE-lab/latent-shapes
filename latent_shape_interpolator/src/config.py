@@ -40,6 +40,9 @@ class ModelConfiguration:
     if not torch.cuda.is_available():
         DEVICE = "cpu"
 
+    LR_LATENT_POINTS = 1e-4
+    LR_DECODER = 1e-5
+
 
 class Configuration(DataConfiguration, ModelConfiguration):
     def __init__(self):
