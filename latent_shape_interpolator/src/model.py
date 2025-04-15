@@ -11,14 +11,14 @@ from latent_shape_interpolator.src.config import Configuration
 
 
 class MultiVectorEmbedding(nn.Module):
-    def __init__(self, num_classes: int, num_latent_points: int):
+    def __init__(self, num_classes: int, num_latent_points: int, min_bound: float, max_bound: float):
         super().__init__()
 
         self.num_classes = num_classes
         self.num_latent_points = num_latent_points
 
         self.multi_vector_embedding = nn.Parameter(torch.randn(self.num_classes, self.num_latent_points, 3))
-        nn.init.uniform_(self.multi_vector_embedding.data, -1.0, 1.0)
+        nn.init.uniform_(self.multi_vector_embedding.data, min_bound, max_bound)
 
     def forward(self, class_number: torch.Tensor) -> torch.Tensor:
         return self.multi_vector_embedding[class_number]
@@ -31,7 +31,12 @@ class SDFDecoder(nn.Module):
         self.num_classes = num_classes
         self.configuration = configuration
 
-        self.latent_points_embedding = MultiVectorEmbedding(num_classes, self.configuration.NUM_LATENT_POINTS)
+        self.latent_points_embedding = MultiVectorEmbedding(
+            num_classes,
+            self.configuration.NUM_LATENT_POINTS,
+            self.configuration.MIN_BOUND,
+            self.configuration.MAX_BOUND,
+        )
 
         self.main_1_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
         self.main_1 = nn.Sequential(

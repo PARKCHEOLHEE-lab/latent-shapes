@@ -6,8 +6,8 @@ import numpy as np
 
 class DataConfiguration:
     GRID_SIZE = 64
-    MIN_BOUND = -1
-    MAX_BOUND = 1
+    MIN_BOUND = -1.0
+    MAX_BOUND = 1.0
 
     DATA_DIR = os.path.abspath(os.path.join(__file__, "../../data"))
     DATA_PATH = os.path.join(DATA_DIR, "03001627")
