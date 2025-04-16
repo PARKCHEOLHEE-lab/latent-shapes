@@ -118,7 +118,7 @@ class DataCreator:
 
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
 
-    def _create_one(self, file: str, class_number: int, map_z_to_y: bool = True) -> None:
+    def _create_one(self, file: str, map_z_to_y: bool = True) -> bool:
         x = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
         y = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
         z = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
@@ -128,6 +128,9 @@ class DataCreator:
         obj_path = os.path.join(
             self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
         )
+
+        if os.path.exists(obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")):
+            return True
 
         mesh = trimesh.load(obj_path)
         if isinstance(mesh, trimesh.Scene):
@@ -144,7 +147,7 @@ class DataCreator:
             mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
 
             if not mesh.is_watertight:
-                return
+                return False
 
         # map z to y
         if map_z_to_y:
@@ -166,32 +169,39 @@ class DataCreator:
             obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz"),
             xyz=xyz,
             sdf=sdf,
-            class_number=class_number,
             latent_points=latent_points,
             faces=faces,
         )
 
-    def create(self, map_z_to_y: bool = True, use_multiprocessing: bool = True) -> None:
-        tasks: List[Tuple[str, int, bool]]
+        return True
+
+    def create(self, map_z_to_y: bool = True) -> None:
+        tasks: List[Tuple[str, bool]]
         tasks = []
 
-        class_number = 0
         data_list = sorted(os.listdir(self.configuration.DATA_PATH))
         for file in data_list:
-            if class_number == 10:
-                break
-
-            tasks.append((file, class_number, map_z_to_y))
-            class_number += 1
+            tasks.append((file, map_z_to_y))
 
         print("creating...")
 
-        if use_multiprocessing:
-            with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
-                pool.starmap(self._create_one, tasks)
-        else:
-            for file, class_number, map_z_to_y in tasks:
-                self._create_one(file, class_number, map_z_to_y)
+        with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+            results = pool.starmap(self._create_one, tasks)
+
+        print("assigning class number...")
+
+        class_number = 0
+        for file, result in zip(data_list, results):
+            if result:
+                data_path = os.path.join(
+                    self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
+                ).replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")
+
+                data = np.load(data_path)
+                data_with_class_number = {**data, "class_number": class_number}
+                np.savez(data_path, **data_with_class_number)
+
+                class_number += 1
 
         print("done!")
 
