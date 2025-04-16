@@ -31,17 +31,23 @@ class Trainer:
         self.sdf_decoder_optimizer = sdf_decoder_optimizer
         self.sdf_dataloader = sdf_dataloader
         self.configuration = configuration
+        
+        self.states = {
+            "epoch": 1,
+            "losses_mean": torch.inf,
+            "losses_sdf": torch.inf,
+            "losses_latent_points": torch.inf,
+        }
 
         self.dataloaders = self._divide_dataloader(subset_count, self.sdf_dataloader)
-
-        self.summary_writer = None
+        
         if log_dir is None:
-            self.summary_writer = SummaryWriter(
-                log_dir=os.path.join(
-                    self.configuration.LOG_DIR_BASE,
-                    datetime.datetime.now(pytz.timezone("Asia/Seoul")).strftime("%m-%d-%Y__%H-%M-%S"),
-                )
+            log_dir = os.path.join(
+                self.configuration.LOG_DIR_BASE,
+                datetime.datetime.now(pytz.timezone("Asia/Seoul")).strftime("%m-%d-%Y__%H-%M-%S"),
             )
+
+        self.summary_writer = SummaryWriter(log_dir=log_dir)
 
     def _divide_dataloader(self, subset_count: int, sdf_dataloader: DataLoader) -> List[DataLoader]:
         """Divide the dataloader to subsets with the number of `subset_count`
@@ -69,7 +75,6 @@ class Trainer:
                     dataset=each_subset,
                     batch_size=sdf_dataloader.batch_size,
                     num_workers=int(os.cpu_count() * 0.7),
-                    shuffle=True,
                     drop_last=True,
                     persistent_workers=True,
                 )
@@ -110,22 +115,44 @@ class Trainer:
             losses_sdf.append(loss_sdf.item() * self.configuration.ACCUMULATION_STEPS)
             losses_latent_points.append(loss_latent_points.item() * self.configuration.ACCUMULATION_STEPS)
 
-        losses_mean = sum(losses) / len(losses)
-        losses_sdf_mean = sum(losses_sdf) / len(losses_sdf)
-        losses_latent_points_mean = sum(losses_latent_points) / len(losses_latent_points)
+        loss_mean = torch.tensor(losses).mean()
+        loss_sdf_mean = torch.tensor(losses_sdf).mean()
+        loss_latent_points_mean = torch.tensor(losses_latent_points).mean()
 
-        return losses_mean, losses_sdf_mean, losses_latent_points_mean
+        return loss_mean, loss_sdf_mean, loss_latent_points_mean
 
     def train(self) -> None:
-        for epoch in tqdm(range(1, self.configuration.EPOCHS + 1)):
-            losses_mean, losses_sdf_mean, losses_latent_points_mean = self._train_each_epoch(
-                self.dataloaders[epoch % len(self.dataloaders)]
-            )
+        torch.multiprocessing.set_start_method("spawn", force=True)
 
-            if self.summary_writer is not None:
-                self.summary_writer.add_scalar("losses_mean", losses_mean, epoch)
-                self.summary_writer.add_scalar("losses_sdf_mean", losses_sdf_mean, epoch)
-                self.summary_writer.add_scalar("losses_latent_points_mean", losses_latent_points_mean, epoch)
+        epoch_start = self.states["epoch"]
+        epoch_end = self.configuration.EPOCHS + 1
+
+        for epoch in tqdm(range(epoch_start, epoch_end)):
+            
+            losses = []
+            losses_sdf = []
+            losses_latent_points = []
+            
+            for si, subset in enumerate(self.dataloaders):
+                subset_loss_mean, subset_loss_sdf_mean, subset_loss_latent_points_mean = self._train_each_epoch(subset)
+
+                losses.append(subset_loss_mean)
+                losses_sdf.append(subset_loss_sdf_mean)
+                losses_latent_points.append(subset_loss_latent_points_mean)
+
+                self.summary_writer.add_scalar(f"subset_{si}_loss_mean", subset_loss_mean, epoch)
+                self.summary_writer.add_scalar(f"subset_{si}_loss_sdf_mean", subset_loss_sdf_mean, epoch)
+                self.summary_writer.add_scalar(
+                    f"subset_{si}_loss_latent_points_mean", subset_loss_latent_points_mean, epoch
+                )
+
+            losses_mean = torch.tensor(losses).mean()
+            losses_sdf_mean = torch.tensor(losses_sdf).mean()
+            losses_latent_points_mean = torch.tensor(losses_latent_points).mean()
+
+            self.summary_writer.add_scalar("loss_mean", losses_mean, epoch)
+            self.summary_writer.add_scalar("loss_sdf_mean", losses_sdf_mean, epoch)
+            self.summary_writer.add_scalar("loss_latent_points_mean", losses_latent_points_mean, epoch)
 
 
 if __name__ == "__main__":
@@ -137,12 +164,15 @@ if __name__ == "__main__":
         if os.path.exists(path):
             data_path.append(path)
 
-    data_path.sort()
+        if len(data_path) == 1:
+            break
+
+    data_path = sorted(data_path)
 
     dataset = SDFDataset(data_path=data_path, configuration=configuration)
     dataloader = DataLoader(dataset=dataset, batch_size=configuration.BATCH_SIZE, shuffle=True)
 
-    sdf_decoder = SDFDecoder(num_classes=10, configuration=configuration)
+    sdf_decoder = SDFDecoder(num_classes=len(data_path), configuration=configuration)
     sdf_decoder_optimizer = torch.optim.AdamW(
         [
             {"params": sdf_decoder.latent_points_embedding.parameters(), "lr": configuration.LR_LATENT_POINTS},
@@ -156,6 +186,7 @@ if __name__ == "__main__":
         sdf_decoder_optimizer=sdf_decoder_optimizer,
         sdf_dataloader=dataloader,
         configuration=configuration,
+        subset_count=configuration.SUBSET_COUNT,
     )
 
     sdf_decoder_trainer.train()
