@@ -31,14 +31,16 @@ class ModelConfiguration:
     EPOCHS = 5000
     SEED = 777
 
-    BATCH_SIZE = 256
-    ACCUMULATION_STEPS = 4
+    BATCH_SIZE = 64
+    ACCUMULATION_STEPS = 16
 
     HIDDEN_DIM = 512
 
     DEVICE = "cuda"
     if not torch.cuda.is_available():
         DEVICE = "cpu"
+
+    SUBSET_COUNT = 8
 
     LR_LATENT_POINTS = 1e-4
     LR_DECODER = 1e-5
