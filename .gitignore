@@ -3,3 +3,4 @@ debugvisualizer/
 data/
 *.npz
 runs/
+*.out
