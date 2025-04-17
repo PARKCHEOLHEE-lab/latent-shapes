@@ -119,11 +119,6 @@ class DataCreator:
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
 
     def _create_one(self, file: str, map_z_to_y: bool = True) -> bool:
-        x = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
-        y = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
-        z = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
-        xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
-        xyz = np.stack([xx, yy, zz], axis=-1).reshape(-1, 3)
 
         obj_path = os.path.join(
             self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
@@ -131,6 +126,14 @@ class DataCreator:
 
         if os.path.exists(obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")):
             return True
+        
+        print(f"processing {file}")
+
+        x = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
+        y = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
+        z = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
+        xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
+        xyz = np.stack([xx, yy, zz], axis=-1).reshape(-1, 3)
 
         mesh = trimesh.load(obj_path)
         if isinstance(mesh, trimesh.Scene):
