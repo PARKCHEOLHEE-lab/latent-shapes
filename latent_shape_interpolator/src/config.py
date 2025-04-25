@@ -5,7 +5,7 @@ import numpy as np
 
 
 class DataConfiguration:
-    GRID_SIZE = 64
+    GRID_SIZE = 32
     MIN_BOUND = -1.0
     MAX_BOUND = 1.0
 
@@ -23,7 +23,7 @@ class DataConfiguration:
         ]
     )
 
-    WATERTIGHT_RESOLUTION = 50000
+    WATERTIGHT_RESOLUTION = 70000
 
     NUM_LATENT_POINTS = 26
 
@@ -37,14 +37,16 @@ class ModelConfiguration:
 
     HIDDEN_DIM = 512
 
+    LR_LATENT_POINTS = 1e-4
+    LR_DECODER = 1e-5
+
     DEVICE = "cuda"
     if not torch.cuda.is_available():
         DEVICE = "cpu"
 
-    SUBSET_COUNT = 8
-
-    LR_LATENT_POINTS = 1e-4
-    LR_DECODER = 1e-5
+    print("CUDA status")
+    print(f"  torch.cuda.is_available(): {torch.cuda.is_available()}")
+    print(f"  DEVICE: {DEVICE} \n")
 
 
 class Configuration(DataConfiguration, ModelConfiguration):
@@ -71,10 +73,6 @@ class Configuration(DataConfiguration, ModelConfiguration):
         torch.backends.cudnn.benchmark = False
         np.random.seed(seed)
         random.seed(seed)
-
-        print("CUDA status")
-        print(f"  torch.cuda.is_available(): {torch.cuda.is_available()}")
-        print(f"  DEVICE: {Configuration.DEVICE} \n")
 
         print("Seeds status:")
         print(f"  Seeds set for torch        : {torch.initial_seed()}")
