@@ -1,6 +1,7 @@
 import os
 import sys
 import torch
+import shutil
 import trimesh
 import numpy as np
 import multiprocessing
@@ -118,16 +119,16 @@ class DataCreator:
 
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
 
-    def _create_one(self, file: str, map_z_to_y: bool = True) -> bool:
+    def _create_one(self, file: str, map_z_to_y: bool, overwrite: bool) -> bool:
 
         obj_path = os.path.join(
             self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
         )
 
-        if os.path.exists(obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")):
+        if not overwrite and os.path.exists(obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")):
             return True
         
-        print(f"processing {file}")
+        print(f"processing {file}", flush=True)
 
         x = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
         y = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
@@ -150,6 +151,7 @@ class DataCreator:
             mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
 
             if not mesh.is_watertight:
+                print(f"{file} is not watertight", flush=True)
                 return False
 
         # map z to y
@@ -178,21 +180,22 @@ class DataCreator:
 
         return True
 
-    def create(self, map_z_to_y: bool = True) -> None:
+    def create(self, map_z_to_y: bool = True, overwrite: bool = False) -> None:
         tasks: List[Tuple[str, bool]]
         tasks = []
-
+        
         data_list = sorted(os.listdir(self.configuration.DATA_PATH))
         for file in data_list:
-            tasks.append((file, map_z_to_y))
+            tasks.append((file, map_z_to_y, overwrite))
 
-        print("creating...")
+        print("creating...", flush=True)
 
         with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
             results = pool.starmap(self._create_one, tasks)
 
-        print("assigning class number...")
+        print("assigning class number...", flush=True)
 
+        os.makedirs(self.configuration.DATA_PATH_PROCESSED, exist_ok=True)
         class_number = 0
         for file, result in zip(data_list, results):
             if result:
@@ -203,10 +206,13 @@ class DataCreator:
                 data = np.load(data_path)
                 data_with_class_number = {**data, "class_number": class_number}
                 np.savez(data_path, **data_with_class_number)
+                
+                os.makedirs(os.path.join(self.configuration.DATA_PATH_PROCESSED, f"{class_number}"), exist_ok=True)
+                shutil.move(data_path, os.path.join(self.configuration.DATA_PATH_PROCESSED, f"{class_number}", f"{file}.npz"))
 
                 class_number += 1
 
-        print("done!")
+        print("done!", flush=True)
 
 
 class SDFDataset(Dataset):
@@ -260,4 +266,4 @@ class SDFDataset(Dataset):
 if __name__ == "__main__":
     configuration = Configuration()
     data_creator = DataCreator(configuration=configuration)
-    data_creator.create()
+    data_creator.create(overwrite=True)

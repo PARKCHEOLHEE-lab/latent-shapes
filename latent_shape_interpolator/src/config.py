@@ -11,6 +11,7 @@ class DataConfiguration:
 
     DATA_DIR = os.path.abspath(os.path.join(__file__, "../../data"))
     DATA_PATH = os.path.join(DATA_DIR, "03001627")
+    DATA_PATH_PROCESSED = os.path.join(DATA_DIR, "processed")
     DATA_NAME = "models"
     DATA_NAME_OBJ = "model_normalized.obj"
 
