@@ -8,6 +8,7 @@ from tqdm import tqdm
 from typing import List, Tuple, Optional
 from torch.utils.data import DataLoader, Subset
 from torch.utils.tensorboard import SummaryWriter
+from torch.optim import lr_scheduler
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -24,7 +25,6 @@ class Trainer:
         sdf_decoder_optimizer: torch.optim.Optimizer,
         sdf_dataloader: DataLoader,
         configuration: Configuration,
-        subset_count: int = 1,
         log_dir: Optional[str] = None,
     ):
         self.sdf_decoder = sdf_decoder
@@ -38,9 +38,13 @@ class Trainer:
             "losses_sdf": torch.inf,
             "losses_latent_points": torch.inf,
         }
-
-        self.dataloaders = self._divide_dataloader(subset_count, self.sdf_dataloader)
         
+        self.scheduler = lr_scheduler.ReduceLROnPlateau(
+            self.sdf_decoder_optimizer,
+            factor=0.1,
+            patience=5,
+        )
+
         if log_dir is None:
             log_dir = os.path.join(
                 self.configuration.LOG_DIR_BASE,
@@ -49,49 +53,15 @@ class Trainer:
 
         self.summary_writer = SummaryWriter(log_dir=log_dir)
 
-    def _divide_dataloader(self, subset_count: int, sdf_dataloader: DataLoader) -> List[DataLoader]:
-        """Divide the dataloader to subsets with the number of `subset_count`
-
-        Args:
-            subset_count (int): count to divide
-            dataloader (DataLoader): dataloader
-
-        Returns:
-            List[Subset]: subsets
-        """
-
-        dataloaders = [sdf_dataloader]
-        if subset_count > 1:
-            train_loader_dataset_size = len(sdf_dataloader.dataset)
-            train_loader_indices = torch.randperm(train_loader_dataset_size)
-
-            subset_divider = train_loader_dataset_size // subset_count
-            dataloaders = []
-            for count in range(subset_count):
-                each_subset_start = count * subset_divider
-                each_subset_end = (count + 1) * subset_divider
-                each_subset = Subset(sdf_dataloader.dataset, train_loader_indices[each_subset_start:each_subset_end])
-                each_dataloader = DataLoader(
-                    dataset=each_subset,
-                    batch_size=sdf_dataloader.batch_size,
-                    num_workers=int(os.cpu_count() * 0.7),
-                    drop_last=True,
-                    persistent_workers=True,
-                )
-
-                dataloaders.append(each_dataloader)
-
-        return dataloaders
-
-    def _train_each_epoch(self, subset: DataLoader) -> Tuple[float, float, float]:
+    def _train_each_epoch(self) -> Tuple[float, float, float]:
         """ """
 
         losses = []
         losses_sdf = []
         losses_latent_points = []
 
-        for batch_index, data in tqdm(enumerate(subset), total=len(subset)):
-            xyz_batch, sdf_batch, class_number_batch, latent_points_batch, faces_batch = data
+        for batch_index, data in tqdm(enumerate(self.sdf_dataloader), total=len(self.sdf_dataloader)):
+            xyz_batch, sdf_batch, class_number_batch, latent_points_batch, _ = data
 
             sdf_preds = self.sdf_decoder(class_number_batch, xyz_batch)
             sdf_preds = torch.clamp(
@@ -122,41 +92,25 @@ class Trainer:
         return loss_mean, loss_sdf_mean, loss_latent_points_mean
 
     def train(self) -> None:
-        torch.multiprocessing.set_start_method("spawn", force=True)
+        # torch.multiprocessing.set_start_method("spawn", force=True)
 
         epoch_start = self.states["epoch"]
         epoch_end = self.configuration.EPOCHS + 1
 
         for epoch in tqdm(range(epoch_start, epoch_end)):
             
-            losses = []
-            losses_sdf = []
-            losses_latent_points = []
-            
-            for si, subset in enumerate(self.dataloaders):
-                subset_loss_mean, subset_loss_sdf_mean, subset_loss_latent_points_mean = self._train_each_epoch(subset)
+            loss_mean, loss_sdf_mean, loss_latent_points_mean = self._train_each_epoch()
 
-                losses.append(subset_loss_mean)
-                losses_sdf.append(subset_loss_sdf_mean)
-                losses_latent_points.append(subset_loss_latent_points_mean)
+            self.scheduler.step(loss_mean)
 
-                self.summary_writer.add_scalar(f"subset_{si}_loss_mean", subset_loss_mean, epoch)
-                self.summary_writer.add_scalar(f"subset_{si}_loss_sdf_mean", subset_loss_sdf_mean, epoch)
-                self.summary_writer.add_scalar(
-                    f"subset_{si}_loss_latent_points_mean", subset_loss_latent_points_mean, epoch
-                )
-
-            losses_mean = torch.tensor(losses).mean()
-            losses_sdf_mean = torch.tensor(losses_sdf).mean()
-            losses_latent_points_mean = torch.tensor(losses_latent_points).mean()
-
-            self.summary_writer.add_scalar("loss_mean", losses_mean, epoch)
-            self.summary_writer.add_scalar("loss_sdf_mean", losses_sdf_mean, epoch)
-            self.summary_writer.add_scalar("loss_latent_points_mean", losses_latent_points_mean, epoch)
+            self.summary_writer.add_scalar("loss_mean", loss_mean, epoch)
+            self.summary_writer.add_scalar("loss_sdf_mean", loss_sdf_mean, epoch)
+            self.summary_writer.add_scalar("loss_latent_points_mean", loss_latent_points_mean, epoch)
 
 
 if __name__ == "__main__":
     configuration = Configuration()
+    configuration.set_seed()
 
     data_path = []
     for folder in os.listdir(configuration.DATA_PATH):
@@ -164,7 +118,7 @@ if __name__ == "__main__":
         if os.path.exists(path):
             data_path.append(path)
 
-        if len(data_path) == 1:
+        if len(data_path) == 5:
             break
 
     data_path = sorted(data_path)
@@ -186,7 +140,6 @@ if __name__ == "__main__":
         sdf_decoder_optimizer=sdf_decoder_optimizer,
         sdf_dataloader=dataloader,
         configuration=configuration,
-        subset_count=configuration.SUBSET_COUNT,
     )
 
     sdf_decoder_trainer.train()
