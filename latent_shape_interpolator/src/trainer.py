@@ -32,26 +32,37 @@ class Trainer:
         self.sdf_dataloader = sdf_dataloader
         self.configuration = configuration
 
-        self.states = {
-            "epoch": 1,
-            "losses_mean": torch.inf,
-            "losses_sdf": torch.inf,
-            "losses_latent_points": torch.inf,
-        }
-
         self.scheduler = lr_scheduler.ReduceLROnPlateau(
             self.sdf_decoder_optimizer,
             factor=self.configuration.SCHEDULER_FACTOR,
             patience=self.configuration.SCHEDULER_PATIENCE,
         )
 
+        self.states = {
+            "epoch": 1,
+            "loss_mean": torch.inf,
+            "loss_sdf": torch.inf,
+            "loss_latent_points": torch.inf,
+            "state_dict_model": self.sdf_decoder.state_dict(),
+            "state_dict_optimizer": self.sdf_decoder_optimizer.state_dict(),
+            "state_dict_scheduler": self.scheduler.state_dict(),
+        }
+
+        if isinstance(log_dir, str):
+            assert os.path.exists(log_dir)
+            assert os.path.exists(os.path.join(log_dir, self.configuration.SAVE_NAME))
+
         if log_dir is None:
             log_dir = os.path.join(
                 self.configuration.LOG_DIR_BASE,
                 datetime.datetime.now(pytz.timezone("Asia/Seoul")).strftime("%m-%d-%Y__%H-%M-%S"),
             )
-
+            
         self.summary_writer = SummaryWriter(log_dir=log_dir)
+        
+    @property
+    def log_dir(self) -> str:
+        return self.summary_writer.log_dir
 
     def _train_each_epoch(self) -> Tuple[float, float, float]:
         """ """
@@ -105,6 +116,26 @@ class Trainer:
             self.summary_writer.add_scalar("loss_mean", loss_mean, epoch)
             self.summary_writer.add_scalar("loss_sdf_mean", loss_sdf_mean, epoch)
             self.summary_writer.add_scalar("loss_latent_points_mean", loss_latent_points_mean, epoch)
+            
+            if loss_mean < self.states["loss_mean"]:
+                self.states.update(
+                    {
+                        "epoch": epoch,
+                        "loss_mean": loss_mean,
+                        "loss_sdf": loss_sdf_mean,
+                        "loss_latent_points": loss_latent_points_mean,
+                        "state_dict_model": self.sdf_decoder.state_dict(),
+                        "state_dict_optimizer": self.sdf_decoder_optimizer.state_dict(),
+                        "state_dict_scheduler": self.scheduler.state_dict(),
+                    }
+                )
+                torch.save(self.states, os.path.join(self.log_dir, self.configuration.SAVE_NAME))
+                
+            else:
+                self.states = torch.load(os.path.join(self.log_dir, self.configuration.SAVE_NAME))
+                self.states.update({"epoch": epoch})
+                torch.save(self.states, os.path.join(self.log_dir, self.configuration.SAVE_NAME))
+                
 
 
 if __name__ == "__main__":
