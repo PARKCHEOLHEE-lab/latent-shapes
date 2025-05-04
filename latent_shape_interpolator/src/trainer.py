@@ -57,9 +57,9 @@ class Trainer:
                 self.configuration.LOG_DIR_BASE,
                 datetime.datetime.now(pytz.timezone("Asia/Seoul")).strftime("%m-%d-%Y__%H-%M-%S"),
             )
-            
+
         self.summary_writer = SummaryWriter(log_dir=log_dir)
-        
+
     @property
     def log_dir(self) -> str:
         return self.summary_writer.log_dir
@@ -116,7 +116,7 @@ class Trainer:
             self.summary_writer.add_scalar("loss_mean", loss_mean, epoch)
             self.summary_writer.add_scalar("loss_sdf_mean", loss_sdf_mean, epoch)
             self.summary_writer.add_scalar("loss_latent_points_mean", loss_latent_points_mean, epoch)
-            
+
             if loss_mean < self.states["loss_mean"]:
                 self.states.update(
                     {
@@ -130,12 +130,11 @@ class Trainer:
                     }
                 )
                 torch.save(self.states, os.path.join(self.log_dir, self.configuration.SAVE_NAME))
-                
+
             else:
                 self.states = torch.load(os.path.join(self.log_dir, self.configuration.SAVE_NAME))
                 self.states.update({"epoch": epoch})
                 torch.save(self.states, os.path.join(self.log_dir, self.configuration.SAVE_NAME))
-                
 
 
 if __name__ == "__main__":

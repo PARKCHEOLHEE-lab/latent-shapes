@@ -40,7 +40,7 @@ class ModelConfiguration:
     LR_LATENT_POINTS = 1e-4
     LR_DECODER = 1e-5
     SAVE_NAME = "states.pth"
-    
+
     SCHEDULER_PATIENCE = 5
     SCHEDULER_FACTOR = 0.1
 
