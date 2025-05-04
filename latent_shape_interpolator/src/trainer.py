@@ -47,6 +47,7 @@ class Trainer:
             "state_dict_model": self.sdf_decoder.state_dict(),
             "state_dict_optimizer": self.sdf_decoder_optimizer.state_dict(),
             "state_dict_scheduler": self.scheduler.state_dict(),
+            "configuration": self.configuration.to_dict(),
         }
 
         # load and set states from log_dir
@@ -135,6 +136,7 @@ class Trainer:
                         "state_dict_model": self.sdf_decoder.state_dict(),
                         "state_dict_optimizer": self.sdf_decoder_optimizer.state_dict(),
                         "state_dict_scheduler": self.scheduler.state_dict(),
+                        "configuration": self.configuration.to_dict(),
                     }
                 )
                 torch.save(self.states, os.path.join(self.log_dir, self.configuration.SAVE_NAME))
