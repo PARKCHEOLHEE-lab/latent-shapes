@@ -44,6 +44,8 @@ class ModelConfiguration:
     SCHEDULER_PATIENCE = 5
     SCHEDULER_FACTOR = 0.1
 
+    TRAIN_VALIDATION_RATIO = [0.8, 0.2]
+
     DEVICE = "cuda"
     if not torch.cuda.is_available():
         DEVICE = "cpu"
