@@ -7,7 +7,7 @@ import numpy as np
 import multiprocessing
 import point_cloud_utils as pcu
 
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from torch.utils.data import Dataset
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
@@ -120,14 +120,13 @@ class DataCreator:
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
 
     def _create_one(self, file: str, map_z_to_y: bool, overwrite: bool) -> bool:
-
         obj_path = os.path.join(
             self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
         )
 
         if not overwrite and os.path.exists(obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")):
             return True
-        
+
         print(f"processing {file}", flush=True)
 
         x = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
@@ -183,7 +182,7 @@ class DataCreator:
     def create(self, map_z_to_y: bool = True, overwrite: bool = False) -> None:
         tasks: List[Tuple[str, bool]]
         tasks = []
-        
+
         data_list = sorted(os.listdir(self.configuration.DATA_PATH))
         for file in data_list:
             tasks.append((file, map_z_to_y, overwrite))
@@ -206,9 +205,11 @@ class DataCreator:
                 data = np.load(data_path)
                 data_with_class_number = {**data, "class_number": class_number}
                 np.savez(data_path, **data_with_class_number)
-                
+
                 os.makedirs(os.path.join(self.configuration.DATA_PATH_PROCESSED, f"{class_number}"), exist_ok=True)
-                shutil.move(data_path, os.path.join(self.configuration.DATA_PATH_PROCESSED, f"{class_number}", f"{file}.npz"))
+                shutil.move(
+                    data_path, os.path.join(self.configuration.DATA_PATH_PROCESSED, f"{class_number}", f"{file}.npz")
+                )
 
                 class_number += 1
 
@@ -216,15 +217,34 @@ class DataCreator:
 
 
 class SDFDataset(Dataset):
-    def __init__(self, data_path: List[str], configuration: Configuration):
+    def __init__(self, data_dir: str, configuration: Configuration, data_slicer: Optional[int] = None):
+        self.data_dir = data_dir
         self.configuration = configuration
-        self.data_path = data_path
-        self.total_length = self.configuration.GRID_SIZE**3 * len(data_path)
-        self.cumulative_length = [0] + [self.configuration.GRID_SIZE**3 * i for i in range(1, len(data_path) + 1)]
+
+        if not isinstance(data_slicer, int):
+            self.data_slicer = len(os.listdir(data_dir))
+
+        self.data_path = []
+        for folder in sorted(os.listdir(self.configuration.DATA_PATH_PROCESSED)):
+            each_data_dir = os.path.join(self.configuration.DATA_PATH_PROCESSED, folder)
+            each_data_name, *remain = os.listdir(each_data_dir)
+            assert len(remain) == 0
+
+            each_data_path = os.path.join(each_data_dir, each_data_name)
+            if os.path.exists(each_data_path):
+                self.data_path.append(each_data_path)
+
+            if len(self.data_path) == data_slicer:
+                break
+
+        self.total_length = self.configuration.GRID_SIZE**3 * len(self.data_path)
+        self.cumulative_length = [0] + [
+            self.configuration.GRID_SIZE**3 * i for i in range(1, len(self.data_path) + 1)
+        ]
 
         self.max_sdf = -np.inf
         self.min_sdf = np.inf
-        for data in data_path:
+        for data in self.data_path:
             sdf = np.load(data)["sdf"]
             self.max_sdf = max(self.max_sdf, sdf.max())
             self.min_sdf = min(self.min_sdf, sdf.min())

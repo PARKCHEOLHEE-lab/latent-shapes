@@ -5,8 +5,8 @@ import torch
 import datetime
 
 from tqdm import tqdm
-from typing import List, Tuple, Optional
-from torch.utils.data import DataLoader, Subset
+from typing import Tuple, Optional
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import lr_scheduler
 
@@ -31,14 +31,14 @@ class Trainer:
         self.sdf_decoder_optimizer = sdf_decoder_optimizer
         self.sdf_dataloader = sdf_dataloader
         self.configuration = configuration
-        
+
         self.states = {
             "epoch": 1,
             "losses_mean": torch.inf,
             "losses_sdf": torch.inf,
             "losses_latent_points": torch.inf,
         }
-        
+
         self.scheduler = lr_scheduler.ReduceLROnPlateau(
             self.sdf_decoder_optimizer,
             factor=0.1,
@@ -98,7 +98,6 @@ class Trainer:
         epoch_end = self.configuration.EPOCHS + 1
 
         for epoch in tqdm(range(epoch_start, epoch_end)):
-            
             loss_mean, loss_sdf_mean, loss_latent_points_mean = self._train_each_epoch()
 
             self.scheduler.step(loss_mean)
@@ -112,21 +111,10 @@ if __name__ == "__main__":
     configuration = Configuration()
     configuration.set_seed()
 
-    data_path = []
-    for folder in os.listdir(configuration.DATA_PATH):
-        path = os.path.join(configuration.DATA_PATH, folder, configuration.DATA_NAME, f"{folder}.npz")
-        if os.path.exists(path):
-            data_path.append(path)
-
-        if len(data_path) == 5:
-            break
-
-    data_path = sorted(data_path)
-
-    dataset = SDFDataset(data_path=data_path, configuration=configuration)
+    dataset = SDFDataset(data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=5)
     dataloader = DataLoader(dataset=dataset, batch_size=configuration.BATCH_SIZE, shuffle=True)
 
-    sdf_decoder = SDFDecoder(num_classes=len(data_path), configuration=configuration)
+    sdf_decoder = SDFDecoder(num_classes=len(dataset.data_path), configuration=configuration)
     sdf_decoder_optimizer = torch.optim.AdamW(
         [
             {"params": sdf_decoder.latent_points_embedding.parameters(), "lr": configuration.LR_LATENT_POINTS},
