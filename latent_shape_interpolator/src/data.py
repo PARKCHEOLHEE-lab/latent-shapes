@@ -7,8 +7,8 @@ import numpy as np
 import multiprocessing
 import point_cloud_utils as pcu
 
-from typing import List, Tuple, Optional
-from torch.utils.data import Dataset
+from typing import Dict, List, Tuple, Optional
+from torch.utils.data import DataLoader, Dataset, random_split
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -284,6 +284,33 @@ class SDFDataset(Dataset):
         faces = faces.to(self.configuration.DEVICE)
 
         return xyz, sdf, class_number, latent_points, faces
+
+    @staticmethod
+    def split_datasets(
+        data_dir: str,
+        configuration: Configuration,
+        data_slicer: Optional[int] = None,
+    ) -> Dict:
+        """"""
+
+        dataset = SDFDataset(data_dir, configuration, data_slicer)
+
+        train_dataset, validation_dataset = random_split(
+            dataset,
+            configuration.TRAIN_VALIDATION_RATIO,
+        )
+
+        train_dataloader = DataLoader(train_dataset, batch_size=configuration.BATCH_SIZE, shuffle=True)
+
+        validation_dataloader = DataLoader(validation_dataset, batch_size=configuration.BATCH_SIZE, shuffle=False)
+
+        dataloaders = {
+            "train": train_dataloader,
+            "validation": validation_dataloader,
+            "num_classes": len(dataset.data_path),
+        }
+
+        return dataloaders
 
 
 if __name__ == "__main__":
