@@ -151,10 +151,11 @@ if __name__ == "__main__":
     configuration = Configuration()
     configuration.set_seed()
 
-    dataset = SDFDataset(data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=5)
-    dataloader = DataLoader(dataset=dataset, batch_size=configuration.BATCH_SIZE, shuffle=True)
+    dataloaders = SDFDataset.split_datasets(
+        data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=5
+    )
 
-    sdf_decoder = SDFDecoder(num_classes=len(dataset.data_path), configuration=configuration)
+    sdf_decoder = SDFDecoder(num_classes=dataloaders["num_classes"], configuration=configuration)
     sdf_decoder_optimizer = torch.optim.AdamW(
         [
             {"params": sdf_decoder.latent_points_embedding.parameters(), "lr": configuration.LR_LATENT_POINTS},
@@ -163,12 +164,12 @@ if __name__ == "__main__":
         ],
     )
 
-    sdf_decoder_trainer = Trainer(
-        sdf_decoder=sdf_decoder,
-        sdf_decoder_optimizer=sdf_decoder_optimizer,
-        sdf_dataloader=dataloader,
-        configuration=configuration,
-        pretrained_dir="latent_shape_interpolator/runs/05-04-2025__17-32-53",
-    )
+    # sdf_decoder_trainer = Trainer(
+    #     sdf_decoder=sdf_decoder,
+    #     sdf_decoder_optimizer=sdf_decoder_optimizer,
+    #     sdf_dataloader=dataloader,
+    #     configuration=configuration,
+    #     pretrained_dir="latent_shape_interpolator/runs/05-04-2025__17-32-53",
+    # )
 
-    sdf_decoder_trainer.train()
+    # sdf_decoder_trainer.train()
