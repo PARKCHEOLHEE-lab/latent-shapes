@@ -224,8 +224,11 @@ class SDFDataset(Dataset):
         if not isinstance(data_slicer, int):
             self.data_slicer = len(os.listdir(data_dir))
 
+        data_list = os.listdir(self.configuration.DATA_PATH_PROCESSED)
+        data_list = sorted(data_list, key=lambda folder: int(folder))
+
         self.data_path = []
-        for folder in sorted(os.listdir(self.configuration.DATA_PATH_PROCESSED)):
+        for folder in data_list:
             each_data_dir = os.path.join(self.configuration.DATA_PATH_PROCESSED, folder)
             each_data_name, *remain = os.listdir(each_data_dir)
             assert len(remain) == 0
