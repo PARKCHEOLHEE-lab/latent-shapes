@@ -41,8 +41,8 @@ class Trainer:
 
         self.scheduler = lr_scheduler.ReduceLROnPlateau(
             self.sdf_decoder_optimizer,
-            factor=0.1,
-            patience=5,
+            factor=self.configuration.SCHEDULER_FACTOR,
+            patience=self.configuration.SCHEDULER_PATIENCE,
         )
 
         if log_dir is None:
