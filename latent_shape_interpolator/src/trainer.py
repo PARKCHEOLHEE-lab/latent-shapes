@@ -25,7 +25,7 @@ class Trainer:
         sdf_decoder_optimizer: torch.optim.Optimizer,
         sdf_dataloader: DataLoader,
         configuration: Configuration,
-        log_dir: Optional[str] = None,
+        pretrained_dir: Optional[str] = None,
     ):
         self.sdf_decoder = sdf_decoder
         self.sdf_decoder_optimizer = sdf_decoder_optimizer
@@ -38,6 +38,7 @@ class Trainer:
             patience=self.configuration.SCHEDULER_PATIENCE,
         )
 
+        # default states
         self.states = {
             "epoch": 1,
             "loss_mean": torch.inf,
@@ -48,17 +49,24 @@ class Trainer:
             "state_dict_scheduler": self.scheduler.state_dict(),
         }
 
-        if isinstance(log_dir, str):
-            assert os.path.exists(log_dir)
-            assert os.path.exists(os.path.join(log_dir, self.configuration.SAVE_NAME))
+        # load and set states from log_dir
+        if isinstance(pretrained_dir, str) and os.path.exists(pretrained_dir):
+            states_path = os.path.join(pretrained_dir, self.configuration.SAVE_NAME)
+            assert os.path.exists(states_path)
 
-        if log_dir is None:
-            log_dir = os.path.join(
+            self.states = torch.load(states_path)
+            self.sdf_decoder.load_state_dict(self.states["state_dict_model"])
+            self.sdf_decoder_optimizer.load_state_dict(self.states["state_dict_optimizer"])
+            self.scheduler.load_state_dict(self.states["state_dict_scheduler"])
+
+        # create new log_dir
+        elif pretrained_dir is None:
+            pretrained_dir = os.path.join(
                 self.configuration.LOG_DIR_BASE,
                 datetime.datetime.now(pytz.timezone("Asia/Seoul")).strftime("%m-%d-%Y__%H-%M-%S"),
             )
 
-        self.summary_writer = SummaryWriter(log_dir=log_dir)
+        self.summary_writer = SummaryWriter(log_dir=pretrained_dir)
 
     @property
     def log_dir(self) -> str:
@@ -158,6 +166,7 @@ if __name__ == "__main__":
         sdf_decoder_optimizer=sdf_decoder_optimizer,
         sdf_dataloader=dataloader,
         configuration=configuration,
+        pretrained_dir="latent_shape_interpolator/runs/05-04-2025__17-32-53",
     )
 
     sdf_decoder_trainer.train()
