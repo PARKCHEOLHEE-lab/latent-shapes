@@ -6,7 +6,6 @@ import datetime
 
 from tqdm import tqdm
 from typing import Tuple, Optional
-from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim import lr_scheduler
 
@@ -23,14 +22,21 @@ class Trainer:
         self,
         sdf_decoder: SDFDecoder,
         sdf_decoder_optimizer: torch.optim.Optimizer,
-        sdf_dataloader: DataLoader,
+        sdf_dataset: SDFDataset,
         configuration: Configuration,
         pretrained_dir: Optional[str] = None,
     ):
         self.sdf_decoder = sdf_decoder
         self.sdf_decoder_optimizer = sdf_decoder_optimizer
-        self.sdf_dataloader = sdf_dataloader
+        self.sdf_dataset = sdf_dataset
         self.configuration = configuration
+
+        assert None not in (
+            self.sdf_dataset.train_dataset,
+            self.sdf_dataset.train_dataloader,
+            self.sdf_dataset.validation_dataset,
+            self.sdf_dataset.validation_dataloader,
+        )
 
         self.scheduler = lr_scheduler.ReduceLROnPlateau(
             self.sdf_decoder_optimizer,
@@ -80,13 +86,13 @@ class Trainer:
         losses_sdf = []
         losses_latent_points = []
 
-        for batch_index, data in tqdm(enumerate(self.sdf_dataloader), total=len(self.sdf_dataloader)):
+        for batch_index, data in tqdm(
+            enumerate(self.sdf_dataset.train_dataloader), total=len(self.sdf_dataset.train_dataloader)
+        ):
             xyz_batch, sdf_batch, class_number_batch, latent_points_batch, _ = data
 
             sdf_preds = self.sdf_decoder(class_number_batch, xyz_batch)
-            sdf_preds = torch.clamp(
-                sdf_preds, min=self.sdf_dataloader.dataset.min_sdf, max=self.sdf_dataloader.dataset.max_sdf
-            )
+            sdf_preds = torch.clamp(sdf_preds, min=self.sdf_dataset.min_sdf, max=self.sdf_dataset.max_sdf)
 
             loss_sdf = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
             loss_latent_points = torch.nn.functional.l1_loss(
@@ -151,11 +157,11 @@ if __name__ == "__main__":
     configuration = Configuration()
     configuration.set_seed()
 
-    dataloaders = SDFDataset.split_datasets(
+    sdf_dataset = SDFDataset.create_dataset(
         data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=5
     )
 
-    sdf_decoder = SDFDecoder(num_classes=dataloaders["num_classes"], configuration=configuration)
+    sdf_decoder = SDFDecoder(num_classes=sdf_dataset.num_classes, configuration=configuration)
     sdf_decoder_optimizer = torch.optim.AdamW(
         [
             {"params": sdf_decoder.latent_points_embedding.parameters(), "lr": configuration.LR_LATENT_POINTS},
@@ -164,12 +170,12 @@ if __name__ == "__main__":
         ],
     )
 
-    # sdf_decoder_trainer = Trainer(
-    #     sdf_decoder=sdf_decoder,
-    #     sdf_decoder_optimizer=sdf_decoder_optimizer,
-    #     sdf_dataloader=dataloader,
-    #     configuration=configuration,
-    #     pretrained_dir="latent_shape_interpolator/runs/05-04-2025__17-32-53",
-    # )
+    sdf_decoder_trainer = Trainer(
+        sdf_decoder=sdf_decoder,
+        sdf_decoder_optimizer=sdf_decoder_optimizer,
+        sdf_dataset=sdf_dataset,
+        configuration=configuration,
+        pretrained_dir="latent_shape_interpolator/runs/05-04-2025__17-32-53",
+    )
 
-    # sdf_decoder_trainer.train()
+    sdf_decoder_trainer.train()
