@@ -258,6 +258,11 @@ class SDFDataset(Dataset):
         assert self.max_sdf != -np.inf
         assert self.min_sdf != np.inf
 
+        self.train_dataset = None
+        self.train_dataloader = None
+        self.validation_dataset = None
+        self.validation_dataloader = None
+
     def __len__(self) -> int:
         return self.total_length
 
