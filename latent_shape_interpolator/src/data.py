@@ -1,6 +1,7 @@
 import os
 import sys
 import torch
+import random
 import shutil
 import trimesh
 import numpy as np
@@ -8,7 +9,7 @@ import multiprocessing
 import point_cloud_utils as pcu
 
 from typing import Dict, List, Tuple, Optional
-from torch.utils.data import DataLoader, Dataset, random_split
+from torch.utils.data import DataLoader, Dataset, Subset
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -240,6 +241,8 @@ class SDFDataset(Dataset):
             if len(self.data_path) == data_slicer:
                 break
 
+        self.num_classes = len(self.data_path)
+
         self.total_length = self.configuration.GRID_SIZE**3 * len(self.data_path)
         self.cumulative_length = [0] + [
             self.configuration.GRID_SIZE**3 * i for i in range(1, len(self.data_path) + 1)
@@ -286,31 +289,50 @@ class SDFDataset(Dataset):
         return xyz, sdf, class_number, latent_points, faces
 
     @staticmethod
-    def split_datasets(
+    def create_dataset(
         data_dir: str,
         configuration: Configuration,
         data_slicer: Optional[int] = None,
     ) -> Dict:
         """"""
 
-        dataset = SDFDataset(data_dir, configuration, data_slicer)
+        sdf_dataset = SDFDataset(data_dir, configuration, data_slicer)
 
-        train_dataset, validation_dataset = random_split(
-            dataset,
-            configuration.TRAIN_VALIDATION_RATIO,
-        )
+        points_per_class = sdf_dataset.configuration.GRID_SIZE**3
+
+        train_size_per_class = int(points_per_class * configuration.TRAIN_VALIDATION_RATIO[0])
+        val_size_per_class = points_per_class - train_size_per_class
+
+        assert train_size_per_class + val_size_per_class == points_per_class
+
+        train_subsets = []
+        validation_subsets = []
+
+        for class_idx in range(sdf_dataset.num_classes):
+            start_idx = class_idx * points_per_class
+            end_idx = (class_idx + 1) * points_per_class
+
+            class_indices = list(range(start_idx, end_idx))
+            random.shuffle(class_indices)
+
+            train_indices = class_indices[:train_size_per_class]
+            val_indices = class_indices[train_size_per_class:]
+
+            train_subsets.append(Subset(sdf_dataset, train_indices))
+            validation_subsets.append(Subset(sdf_dataset, val_indices))
+
+        train_dataset = torch.utils.data.ConcatDataset(train_subsets)
+        validation_dataset = torch.utils.data.ConcatDataset(validation_subsets)
 
         train_dataloader = DataLoader(train_dataset, batch_size=configuration.BATCH_SIZE, shuffle=True)
-
         validation_dataloader = DataLoader(validation_dataset, batch_size=configuration.BATCH_SIZE, shuffle=False)
 
-        dataloaders = {
-            "train": train_dataloader,
-            "validation": validation_dataloader,
-            "num_classes": len(dataset.data_path),
-        }
+        sdf_dataset.train_dataset = train_dataset
+        sdf_dataset.train_dataloader = train_dataloader
+        sdf_dataset.validation_dataset = validation_dataset
+        sdf_dataset.validation_dataloader = validation_dataloader
 
-        return dataloaders
+        return sdf_dataset
 
 
 if __name__ == "__main__":
