@@ -79,6 +79,45 @@ class Trainer:
     def log_dir(self) -> str:
         return self.summary_writer.log_dir
 
+    @torch.no_grad()
+    def _evaluate_each_epoch(self) -> Tuple[float, float, float]:
+        """ """
+
+        # set to evaluation mode
+        self.sdf_decoder.eval()
+
+        losses_val = []
+        losses_sdf_val = []
+        losses_latent_points_val = []
+
+        for _, data in tqdm(
+            enumerate(self.sdf_dataset.validation_dataloader), total=len(self.sdf_dataset.validation_dataloader)
+        ):
+            xyz_batch, sdf_batch, class_number_batch, latent_points_batch, _ = data
+
+            sdf_preds = self.sdf_decoder(class_number_batch, xyz_batch)
+            sdf_preds = torch.clamp(sdf_preds, min=self.sdf_dataset.min_sdf, max=self.sdf_dataset.max_sdf)
+
+            loss_sdf = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
+            loss_latent_points = torch.nn.functional.l1_loss(
+                self.sdf_decoder.latent_points_embedding(class_number_batch), latent_points_batch
+            )
+
+            loss = loss_sdf + loss_latent_points
+
+            losses_val.append(loss.item())
+            losses_sdf_val.append(loss_sdf.item())
+            losses_latent_points_val.append(loss_latent_points.item())
+
+        loss_mean_val = torch.tensor(losses_val).mean()
+        loss_sdf_mean_val = torch.tensor(losses_sdf_val).mean()
+        loss_latent_points_mean_val = torch.tensor(losses_latent_points_val).mean()
+
+        # re-set to training mode
+        self.sdf_decoder.train()
+
+        return loss_mean_val, loss_sdf_mean_val, loss_latent_points_mean_val
+
     def _train_each_epoch(self) -> Tuple[float, float, float]:
         """ """
 
@@ -125,6 +164,7 @@ class Trainer:
 
         for epoch in tqdm(range(epoch_start, epoch_end)):
             loss_mean, loss_sdf_mean, loss_latent_points_mean = self._train_each_epoch()
+            loss_mean_val, loss_sdf_mean_val, loss_latent_points_mean_val = self._evaluate_each_epoch()
 
             self.scheduler.step(loss_mean)
 
