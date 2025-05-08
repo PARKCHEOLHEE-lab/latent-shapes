@@ -181,11 +181,11 @@ class Trainer:
             self.summary_writer.add_scalar("loss_sdf_mean_val", loss_sdf_mean_val, epoch)
             self.summary_writer.add_scalar("loss_latent_points_mean_val", loss_latent_points_mean_val, epoch)
 
-            self.summary_writer.add_scalar("loss_mean_weighted", loss_mean_weighted_sum, epoch)
+            self.summary_writer.add_scalar("loss_mean_weighted_sum", loss_mean_weighted_sum, epoch)
 
             self.scheduler.step(loss_mean_weighted_sum)
 
-            if loss_mean_weighted_sum < self.states["loss_mean_weighted"]:
+            if loss_mean_weighted_sum < self.states["loss_mean_weighted_sum"]:
                 self.states.update(
                     {
                         "epoch": epoch,
