@@ -26,6 +26,7 @@ class DataConfiguration:
     WATERTIGHT_RESOLUTION = 70000
 
     NUM_LATENT_POINTS = 26
+    GRID_SIZE_RECONSTRUCTION = 192
 
 
 class ModelConfiguration:
