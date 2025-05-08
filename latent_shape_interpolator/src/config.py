@@ -40,6 +40,10 @@ class ModelConfiguration:
 
     LR_LATENT_POINTS = 1e-4
     LR_DECODER = 1e-5
+
+    LOSS_TRAIN_WEIGHT = 0.5
+    LOSS_VALIDATION_WEIGHT = 1.0
+
     SAVE_NAME = "states.pth"
 
     SCHEDULER_PATIENCE = 5
