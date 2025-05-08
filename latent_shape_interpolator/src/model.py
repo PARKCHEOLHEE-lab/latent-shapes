@@ -1,8 +1,8 @@
 import os
 import sys
 import torch
+import skimage
 import torch.nn as nn
-
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -78,3 +78,46 @@ class SDFDecoder(nn.Module):
         x2 = self.main_2(cxyz_2)
 
         return x2
+
+    @torch.no_grad()
+    def reconstruct(self, class_number=None, cxyz_1=None):
+        if all(a is None for a in (class_number, cxyz_1)):
+            return
+
+        self.eval()
+
+        if class_number is not None:
+            x = torch.linspace(
+                self.configuration.MIN_BOUND,
+                self.configuration.MAX_BOUND,
+                self.configuration.GRID_SIZE_RECONSTRUCTION,
+            )
+            y = torch.linspace(
+                self.configuration.MIN_BOUND,
+                self.configuration.MAX_BOUND,
+                self.configuration.GRID_SIZE_RECONSTRUCTION,
+            )
+            z = torch.linspace(
+                self.configuration.MIN_BOUND,
+                self.configuration.MAX_BOUND,
+                self.configuration.GRID_SIZE_RECONSTRUCTION,
+            )
+            xx, yy, zz = torch.meshgrid(x, y, z)
+            xyz = torch.stack([xx, yy, zz], dim=-1).reshape(-1, 3)
+
+            sdf = self.forward(class_number=class_number, xyz=xyz)
+
+        elif cxyz_1 is not None:
+            sdf = self.forward(class_number=None, xyz=None, cxyz_1=cxyz_1)
+
+        grid_sdf = sdf.reshape(
+            self.configuration.GRID_SIZE_RECONSTRUCTION,
+            self.configuration.GRID_SIZE_RECONSTRUCTION,
+            self.configuration.GRID_SIZE_RECONSTRUCTION,
+        )
+
+        vertices, faces, _, _ = skimage.measure.marching_cubes(grid_sdf, level=0.00)
+
+        self.train()
+
+        return
