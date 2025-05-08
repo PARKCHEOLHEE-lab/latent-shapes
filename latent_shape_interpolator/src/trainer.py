@@ -53,6 +53,7 @@ class Trainer:
             "loss_mean_val": torch.inf,
             "loss_sdf_val": torch.inf,
             "loss_latent_points_val": torch.inf,
+            "loss_mean_weighted_sum": torch.inf,
             "state_dict_model": self.sdf_decoder.state_dict(),
             "state_dict_optimizer": self.sdf_decoder_optimizer.state_dict(),
             "state_dict_scheduler": self.scheduler.state_dict(),
@@ -167,7 +168,10 @@ class Trainer:
             loss_mean, loss_sdf_mean, loss_latent_points_mean = self._train_each_epoch()
             loss_mean_val, loss_sdf_mean_val, loss_latent_points_mean_val = self._evaluate_each_epoch()
 
-            self.scheduler.step(loss_mean_val)
+            loss_mean_weighted_sum = (
+                loss_mean * self.configuration.LOSS_TRAIN_WEIGHT
+                + loss_mean_val * self.configuration.LOSS_VALIDATION_WEIGHT
+            )
 
             self.summary_writer.add_scalar("loss_mean", loss_mean, epoch)
             self.summary_writer.add_scalar("loss_sdf_mean", loss_sdf_mean, epoch)
@@ -177,7 +181,11 @@ class Trainer:
             self.summary_writer.add_scalar("loss_sdf_mean_val", loss_sdf_mean_val, epoch)
             self.summary_writer.add_scalar("loss_latent_points_mean_val", loss_latent_points_mean_val, epoch)
 
-            if loss_mean_val < self.states["loss_mean_val"]:
+            self.summary_writer.add_scalar("loss_mean_weighted", loss_mean_weighted_sum, epoch)
+
+            self.scheduler.step(loss_mean_weighted_sum)
+
+            if loss_mean_weighted_sum < self.states["loss_mean_weighted"]:
                 self.states.update(
                     {
                         "epoch": epoch,
@@ -187,6 +195,7 @@ class Trainer:
                         "loss_mean_val": loss_mean_val,
                         "loss_sdf_val": loss_sdf_mean_val,
                         "loss_latent_points_val": loss_latent_points_mean_val,
+                        "loss_mean_weighted_sum": loss_mean_weighted_sum,
                         "state_dict_model": self.sdf_decoder.state_dict(),
                         "state_dict_optimizer": self.sdf_decoder_optimizer.state_dict(),
                         "state_dict_scheduler": self.scheduler.state_dict(),
