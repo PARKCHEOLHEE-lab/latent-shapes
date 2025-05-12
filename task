@@ -1,4 +1,4 @@
 - [x] schedulers
 - [x] checkpoint
 - [] def `reconstruct`
-- 
+- [] save config.py by copying with shutil
