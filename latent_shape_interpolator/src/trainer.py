@@ -219,7 +219,7 @@ if __name__ == "__main__":
     )
 
     sdf_decoder = SDFDecoder(num_classes=sdf_dataset.num_classes, configuration=configuration)
-    sdf_decoder_optimizer = torch.optim.AdamW(
+    sdf_decoder_optimizer = getattr(torch.optim, configuration.OPTIMIZER)(
         [
             {"params": sdf_decoder.latent_points_embedding.parameters(), "lr": configuration.LR_LATENT_POINTS},
             {"params": sdf_decoder.main_1.parameters(), "lr": configuration.LR_DECODER},

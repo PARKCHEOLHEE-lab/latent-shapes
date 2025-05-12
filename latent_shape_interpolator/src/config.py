@@ -50,6 +50,8 @@ class ModelConfiguration:
     SCHEDULER_FACTOR = 0.1
 
     TRAIN_VALIDATION_RATIO = [0.8, 0.2]
+    
+    OPTIMIZER = "AdamW"
 
     DEVICE = "cuda"
     if not torch.cuda.is_available():
