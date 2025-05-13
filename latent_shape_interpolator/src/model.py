@@ -80,35 +80,30 @@ class SDFDecoder(nn.Module):
         return x2
 
     @torch.no_grad()
-    def reconstruct(self, class_number=None, cxyz_1=None):
-        if all(a is None for a in (class_number, cxyz_1)):
-            return
-
+    def reconstruct(self, latent_points: torch.Tensor):
         self.eval()
 
-        if class_number is not None:
-            x = torch.linspace(
-                self.configuration.MIN_BOUND,
-                self.configuration.MAX_BOUND,
-                self.configuration.GRID_SIZE_RECONSTRUCTION,
-            )
-            y = torch.linspace(
-                self.configuration.MIN_BOUND,
-                self.configuration.MAX_BOUND,
-                self.configuration.GRID_SIZE_RECONSTRUCTION,
-            )
-            z = torch.linspace(
-                self.configuration.MIN_BOUND,
-                self.configuration.MAX_BOUND,
-                self.configuration.GRID_SIZE_RECONSTRUCTION,
-            )
-            xx, yy, zz = torch.meshgrid(x, y, z)
-            xyz = torch.stack([xx, yy, zz], dim=-1).reshape(-1, 3)
+        x = torch.linspace(
+            self.configuration.MIN_BOUND,
+            self.configuration.MAX_BOUND,
+            self.configuration.GRID_SIZE_RECONSTRUCTION,
+        )
+        y = torch.linspace(
+            self.configuration.MIN_BOUND,
+            self.configuration.MAX_BOUND,
+            self.configuration.GRID_SIZE_RECONSTRUCTION,
+        )
+        z = torch.linspace(
+            self.configuration.MIN_BOUND,
+            self.configuration.MAX_BOUND,
+            self.configuration.GRID_SIZE_RECONSTRUCTION,
+        )
+        xx, yy, zz = torch.meshgrid(x, y, z, indexing="ij")
+        xyz = torch.stack([xx, yy, zz], dim=-1).reshape(-1, 3)
 
-            sdf = self.forward(class_number=class_number, xyz=xyz)
+        cxyz_1 = torch.cat((xyz.unsqueeze(1), latent_points), dim=1)
 
-        elif cxyz_1 is not None:
-            sdf = self.forward(class_number=None, xyz=None, cxyz_1=cxyz_1)
+        sdf = self.forward(None, None, cxyz_1=cxyz_1)
 
         grid_sdf = sdf.reshape(
             self.configuration.GRID_SIZE_RECONSTRUCTION,
@@ -119,5 +114,7 @@ class SDFDecoder(nn.Module):
         vertices, faces, _, _ = skimage.measure.marching_cubes(grid_sdf, level=0.00)
 
         self.train()
+
+        # # TODO: Save to mesh
 
         return
