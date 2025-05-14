@@ -87,29 +87,38 @@ class SDFDecoder(nn.Module):
             self.configuration.MIN_BOUND,
             self.configuration.MAX_BOUND,
             self.configuration.GRID_SIZE_RECONSTRUCTION,
+            # 3
         )
         y = torch.linspace(
             self.configuration.MIN_BOUND,
             self.configuration.MAX_BOUND,
             self.configuration.GRID_SIZE_RECONSTRUCTION,
+            # 3
         )
         z = torch.linspace(
             self.configuration.MIN_BOUND,
             self.configuration.MAX_BOUND,
             self.configuration.GRID_SIZE_RECONSTRUCTION,
+            # 3
         )
         xx, yy, zz = torch.meshgrid(x, y, z, indexing="ij")
-        xyz = torch.stack([xx, yy, zz], dim=-1).reshape(-1, 3)
+        xyz = torch.stack([xx, yy, zz], dim=-1).reshape(-1, 3).to(self.configuration.DEVICE)
+        xyz_batch = xyz.expand(latent_points.shape[0], -1, -1)
 
-        cxyz_1 = torch.cat((xyz.unsqueeze(1), latent_points), dim=1)
+        latent_points_flattened = latent_points.reshape(latent_points.shape[0], 1, -1)
+        latent_points_expanded = latent_points_flattened.expand(-1, xyz_batch.shape[1], -1)
 
-        sdf = self.forward(None, None, cxyz_1=cxyz_1)
+        cxyz_batch = torch.cat([xyz_batch, latent_points_expanded], dim=-1)
+        for cxyz_1 in cxyz_batch:
+            sdf = self.forward(None, None, cxyz_1=cxyz_1)
 
-        grid_sdf = sdf.reshape(
-            self.configuration.GRID_SIZE_RECONSTRUCTION,
-            self.configuration.GRID_SIZE_RECONSTRUCTION,
-            self.configuration.GRID_SIZE_RECONSTRUCTION,
-        )
+            grid_sdf = sdf.reshape(
+                self.configuration.GRID_SIZE_RECONSTRUCTION,
+                self.configuration.GRID_SIZE_RECONSTRUCTION,
+                self.configuration.GRID_SIZE_RECONSTRUCTION,
+            )
+
+
 
         vertices, faces, _, _ = skimage.measure.marching_cubes(grid_sdf, level=0.00)
 
