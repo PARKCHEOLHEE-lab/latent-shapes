@@ -66,7 +66,7 @@ class SDFDecoder(nn.Module):
 
         self.to(self.configuration.DEVICE)
 
-    def forward(self, class_number: torch.Tensor, xyz: torch.Tensor, cxyz_1: torch.Tensor = None, clamp: bool = True):
+    def forward(self, class_number: torch.Tensor, xyz: torch.Tensor, cxyz_1: torch.Tensor = None):
         if cxyz_1 is None:
             cxyz_1 = torch.cat((xyz.unsqueeze(1), self.latent_points_embedding(class_number)), dim=1)
             cxyz_1 = cxyz_1.reshape(xyz.shape[0], -1)
@@ -76,9 +76,6 @@ class SDFDecoder(nn.Module):
         cxyz_2 = torch.cat((x1, cxyz_1), dim=1)
 
         x2 = self.main_2(cxyz_2)
-
-        if clamp:
-            x2 = torch.clamp(x2, min=-self.configuration.CLAMP_VALUE, max=self.configuration.CLAMP_VALUE)
 
         return x2
 
