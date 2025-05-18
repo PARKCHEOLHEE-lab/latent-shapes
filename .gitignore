@@ -4,3 +4,5 @@ data/
 *.npz
 runs/
 *.out
+
+task.md
