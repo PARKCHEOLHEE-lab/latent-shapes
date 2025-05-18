@@ -100,7 +100,7 @@ class Trainer:
             xyz_batch, sdf_batch, class_number_batch, latent_points_batch, _ = data
 
             sdf_preds = self.sdf_decoder(class_number_batch, xyz_batch)
-            sdf_preds = torch.clamp(sdf_preds, min=-self.sdf_dataset.max_sdf, max=self.sdf_dataset.min_sdf)
+            sdf_preds = torch.clamp(sdf_preds, min=-self.configuration.CLAMP, max=self.configuration.CLAMP)
 
             loss_sdf = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
             loss_latent_points = torch.nn.functional.mse_loss(
@@ -135,7 +135,7 @@ class Trainer:
             xyz_batch, sdf_batch, class_number_batch, latent_points_batch, _ = data
 
             sdf_preds = self.sdf_decoder(class_number_batch, xyz_batch)
-            sdf_preds = torch.clamp(sdf_preds, min=-self.sdf_dataset.max_sdf, max=self.sdf_dataset.min_sdf)
+            sdf_preds = torch.clamp(sdf_preds, min=-self.configuration.CLAMP, max=self.configuration.CLAMP)
 
             loss_sdf = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
             loss_latent_points = torch.nn.functional.mse_loss(

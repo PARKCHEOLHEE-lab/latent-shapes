@@ -43,6 +43,8 @@ class ModelConfiguration:
 
     LOSS_TRAIN_WEIGHT = 0.5
     LOSS_VALIDATION_WEIGHT = 1.0
+    
+    CLAMP = 0.1
 
     SAVE_NAME = "states.pth"
 
