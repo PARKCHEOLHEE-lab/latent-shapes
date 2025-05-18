@@ -62,6 +62,7 @@ class SDFDecoder(nn.Module):
             nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
             nn.ReLU(True),
             nn.Linear(self.configuration.HIDDEN_DIM, 1),
+            nn.Tanh(),
         )
 
         self.to(self.configuration.DEVICE)
