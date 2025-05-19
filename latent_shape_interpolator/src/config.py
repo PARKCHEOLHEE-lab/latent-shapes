@@ -5,9 +5,13 @@ import numpy as np
 
 
 class DataConfiguration:
-    GRID_SIZE = 32
+    GRID_SIZE = 64
     MIN_BOUND = -1.0
     MAX_BOUND = 1.0
+
+    N_SURFACE_SAMPLING_RATIO = 0.3
+    N_SURFACE_NOISY_SAMPLING_RATIO = 0.3
+    N_VOLUME_SAMPLING_RATIO = 0.4
 
     DATA_DIR = os.path.abspath(os.path.join(__file__, "../../data"))
     DATA_PATH = os.path.join(DATA_DIR, "03001627")
