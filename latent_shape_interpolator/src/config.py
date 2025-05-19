@@ -34,7 +34,7 @@ class ModelConfiguration:
     SEED = 777
 
     BATCH_SIZE = 64
-    ACCUMULATION_STEPS = 16
+    ACCUMULATION_STEPS = 1
 
     HIDDEN_DIM = 512
 
