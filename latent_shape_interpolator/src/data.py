@@ -140,16 +140,12 @@ class DataCreator:
 
         if not overwrite and os.path.exists(obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")):
             return True
-
+        
         print(f"processing {file}", flush=True)
 
-        x = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
-        y = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
-        z = np.linspace(self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, self.configuration.GRID_SIZE)
-        xx, yy, zz = np.meshgrid(x, y, z, indexing="ij")
-        xyz = np.stack([xx, yy, zz], axis=-1).reshape(-1, 3)
-
+        # load mesh
         mesh = trimesh.load(obj_path)
+
         if isinstance(mesh, trimesh.Scene):
             geo_list = []
             for g in mesh.geometry.values():
@@ -176,7 +172,10 @@ class DataCreator:
 
         # orient the mesh
         mesh = self._orient_mesh(mesh)
-
+        
+        # sample points
+        xyz = self._sample_points(mesh)
+        
         # compute latent points
         latent_points, faces = self._compute_latent_points(mesh)
 
