@@ -119,6 +119,19 @@ class DataCreator:
         assert box_mesh_subdivided.vertices.shape == (self.configuration.NUM_LATENT_POINTS, 3)
 
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
+    
+    def _sample_points(self, mesh: trimesh.Trimesh) -> np.ndarray:
+        
+        surface_points_sampled, _ = trimesh.sample.sample_surface(mesh, self.configuration.N_SURFACE_SAMPLING)
+        surface_points_noisy_sampled = surface_points_sampled.copy() + np.random.uniform(
+            -self.configuration.NOISE, self.configuration.NOISE, size=surface_points_sampled.shape
+        )
+        
+        volume_points_sampled = np.random.uniform(
+            self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, size=(self.configuration.N_VOLUME_SAMPLING, 3)
+        )
+        
+        return np.concatenate([surface_points_sampled, surface_points_noisy_sampled, volume_points_sampled])
 
     def _create_one(self, file: str, map_z_to_y: bool, overwrite: bool) -> bool:
         obj_path = os.path.join(
