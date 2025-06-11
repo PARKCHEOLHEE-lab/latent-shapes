@@ -191,7 +191,12 @@ class DataCreator:
 
         return True
 
-    def create(self, map_z_to_y: bool = True, overwrite: bool = False) -> None:
+    def create(
+        self, 
+        map_z_to_y: bool = True, 
+        overwrite: bool = False, 
+        use_multiprocessing: bool = True
+    ) -> None:
         tasks: List[Tuple[str, bool]]
         tasks = []
 
@@ -201,8 +206,13 @@ class DataCreator:
 
         print("creating...", flush=True)
 
-        with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
-            results = pool.starmap(self._create_one, tasks)
+        if use_multiprocessing:
+            with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
+                results = pool.starmap(self._create_one, tasks)
+        else:
+            results = []
+            for task in tasks:
+                results.append(self._create_one(*task))
 
         print("assigning class number...", flush=True)
 
