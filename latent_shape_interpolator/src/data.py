@@ -67,7 +67,7 @@ class DataCreator:
 
         return oriented_mesh
 
-    def _compute_latent_points(self, mesh: trimesh.Trimesh) -> np.ndarray:
+    def _compute_latent_shape(self, mesh: trimesh.Trimesh) -> np.ndarray:
         box_mesh = trimesh.creation.box(bounds=mesh.bounds)
         box_mesh.vertices = box_mesh.vertices @ self.configuration.SCALE_MATRIX
         box_mesh_subdivided = box_mesh.subdivide()
@@ -119,18 +119,17 @@ class DataCreator:
         assert box_mesh_subdivided.vertices.shape == (self.configuration.NUM_LATENT_POINTS, 3)
 
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
-    
+
     def _sample_points(self, mesh: trimesh.Trimesh) -> np.ndarray:
-        
         surface_points_sampled, _ = trimesh.sample.sample_surface(mesh, self.configuration.N_SURFACE_SAMPLING)
         surface_points_noisy_sampled = surface_points_sampled.copy() + np.random.uniform(
             -self.configuration.NOISE, self.configuration.NOISE, size=surface_points_sampled.shape
         )
-        
+
         volume_points_sampled = np.random.uniform(
             self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, size=(self.configuration.N_VOLUME_SAMPLING, 3)
         )
-        
+
         return np.concatenate([surface_points_sampled, surface_points_noisy_sampled, volume_points_sampled])
 
     def _create_one(self, file: str, map_z_to_y: bool, overwrite: bool) -> bool:
@@ -140,7 +139,7 @@ class DataCreator:
 
         if not overwrite and os.path.exists(obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")):
             return True
-        
+
         print(f"processing {file}", flush=True)
 
         # load mesh
@@ -172,12 +171,12 @@ class DataCreator:
 
         # orient the mesh
         mesh = self._orient_mesh(mesh)
-        
+
         # sample points
         xyz = self._sample_points(mesh)
-        
+
         # compute latent points
-        latent_points, faces = self._compute_latent_points(mesh)
+        latent_shape, faces = self._compute_latent_shape(mesh)
 
         # compute sdf values
         sdf, *_ = pcu.signed_distance_to_mesh(xyz, mesh.vertices, mesh.faces)
@@ -186,7 +185,7 @@ class DataCreator:
             obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz"),
             xyz=xyz,
             sdf=sdf,
-            latent_points=latent_points,
+            latent_shape=latent_shape,
             faces=faces,
         )
 
@@ -294,16 +293,16 @@ class SDFDataset(Dataset):
         xyz = torch.tensor(data["xyz"][idx], dtype=torch.float32)
         sdf = torch.tensor(data["sdf"][idx], dtype=torch.float32)
         class_number = torch.tensor(data["class_number"], dtype=torch.long)
-        latent_points = torch.tensor(data["latent_points"], dtype=torch.float32)
+        latent_shape = torch.tensor(data["latent_shape"], dtype=torch.float32)
         faces = torch.tensor(data["faces"], dtype=torch.long)
 
         xyz = xyz.to(self.configuration.DEVICE)
         sdf = sdf.to(self.configuration.DEVICE)
         class_number = class_number.to(self.configuration.DEVICE)
-        latent_points = latent_points.to(self.configuration.DEVICE)
+        latent_shape = latent_shape.to(self.configuration.DEVICE)
         faces = faces.to(self.configuration.DEVICE)
 
-        return xyz, sdf, class_number, latent_points, faces
+        return xyz, sdf, class_number, latent_shape, faces
 
     @staticmethod
     def create_dataset(
@@ -322,7 +321,7 @@ class SDFDataset(Dataset):
 
         train_subsets = []
         validation_subsets = []
-        latent_points_list = []
+        latent_shapes = []
 
         for class_idx in range(sdf_dataset.num_classes):
             start_idx = class_idx * configuration.N_TOTAL_SAMPLING
@@ -336,9 +335,9 @@ class SDFDataset(Dataset):
 
             train_subsets.append(Subset(sdf_dataset, train_indices))
             validation_subsets.append(Subset(sdf_dataset, val_indices))
-            latent_points_list.append(sdf_dataset[start_idx][3])
+            latent_shapes.append(sdf_dataset[start_idx][3])
 
-        assert len(latent_points_list) == sdf_dataset.num_classes
+        assert len(latent_shapes) == sdf_dataset.num_classes
 
         train_dataset = torch.utils.data.ConcatDataset(train_subsets)
         validation_dataset = torch.utils.data.ConcatDataset(validation_subsets)
@@ -350,7 +349,7 @@ class SDFDataset(Dataset):
         sdf_dataset.train_dataloader = train_dataloader
         sdf_dataset.validation_dataset = validation_dataset
         sdf_dataset.validation_dataloader = validation_dataloader
-        sdf_dataset.latent_points = torch.stack(latent_points_list)
+        sdf_dataset.latent_shapes = torch.stack(latent_shapes)
 
         return sdf_dataset
 

@@ -10,32 +10,31 @@ if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys
 from latent_shape_interpolator.src.config import Configuration
 
 
-class LatentPoints(nn.Module):
-    def __init__(self, latent_points: int, min_bound: float, max_bound: float):
+class LatentShapes(nn.Module):
+    def __init__(self, latent_shapes: int, min_bound: float, max_bound: float):
         super().__init__()
 
-        self.latent_points = latent_points
-        
         # add noise to latent points
-        self.noise = min_bound + torch.rand_like(latent_points) * (max_bound - min_bound)
-        self.latent_points_with_noise = self.latent_points + self.noise
+        self.noise = min_bound + torch.rand_like(latent_shapes) * (max_bound - min_bound)
 
         # initialize latent points with noise
-        self.multi_vector_embedding = nn.Parameter(self.latent_points_with_noise)
+        self.embedding = nn.Parameter(latent_shapes + self.noise)
+
+        # TODO: check if the latent shapes range is valid
 
     def forward(self, class_number: torch.Tensor) -> torch.Tensor:
-        return self.multi_vector_embedding[class_number]
+        return self.embedding[class_number]
 
 
 class SDFDecoder(nn.Module):
-    def __init__(self, latent_points: torch.Tensor, configuration: Configuration):
+    def __init__(self, latent_shapes: torch.Tensor, configuration: Configuration):
         super().__init__()
 
-        self.latent_points = latent_points
+        self.latent_shapes = latent_shapes
         self.configuration = configuration
 
-        self.latent_points_embedding = LatentPoints(
-            latent_points=self.latent_points,
+        self.latent_shapes_embedding = LatentShapes(
+            latent_shapes=self.latent_shapes,
             min_bound=-self.configuration.LATENT_POINTS_NOISE,
             max_bound=self.configuration.LATENT_POINTS_NOISE,
         )
@@ -71,7 +70,7 @@ class SDFDecoder(nn.Module):
 
     def forward(self, class_number: torch.Tensor, xyz: torch.Tensor, cxyz_1: torch.Tensor = None):
         if cxyz_1 is None:
-            cxyz_1 = torch.cat((xyz.unsqueeze(1), self.latent_points_embedding(class_number)), dim=1)
+            cxyz_1 = torch.cat((xyz.unsqueeze(1), self.latent_shapes_embedding(class_number)), dim=1)
             cxyz_1 = cxyz_1.reshape(xyz.shape[0], -1)
 
         x1 = self.main_1(cxyz_1)
@@ -83,47 +82,62 @@ class SDFDecoder(nn.Module):
         return x2
 
     @torch.no_grad()
-    def reconstruct(self, latent_points: torch.Tensor):
+    def reconstruct(
+        self,
+        latent_shapes: torch.Tensor,
+        normalize: bool = True,
+        check_watertight: bool = False,
+        map_z_to_y: bool = False,
+    ):
         self.eval()
 
         x = torch.linspace(
             self.configuration.MIN_BOUND,
             self.configuration.MAX_BOUND,
             self.configuration.GRID_SIZE_RECONSTRUCTION,
-            # 3
         )
         y = torch.linspace(
             self.configuration.MIN_BOUND,
             self.configuration.MAX_BOUND,
             self.configuration.GRID_SIZE_RECONSTRUCTION,
-            # 3
         )
         z = torch.linspace(
             self.configuration.MIN_BOUND,
             self.configuration.MAX_BOUND,
             self.configuration.GRID_SIZE_RECONSTRUCTION,
-            # 3
         )
         xx, yy, zz = torch.meshgrid(x, y, z, indexing="ij")
         xyz = torch.stack([xx, yy, zz], dim=-1).reshape(-1, 3).to(self.configuration.DEVICE)
-        xyz_batch = xyz.expand(latent_points.shape[0], -1, -1)
+        xyz_batch = xyz.expand(latent_shapes.shape[0], -1, -1)
 
-        latent_points_flattened = latent_points.reshape(latent_points.shape[0], 1, -1)
-        latent_points_expanded = latent_points_flattened.expand(-1, xyz_batch.shape[1], -1)
+        latent_shapes_flattened = latent_shapes.reshape(latent_shapes.shape[0], 1, -1)
+        latent_shapes_expanded = latent_shapes_flattened.expand(-1, xyz_batch.shape[1], -1)
 
-        cxyz_batch = torch.cat([xyz_batch, latent_points_expanded], dim=-1)
+        cxyz_batch = torch.cat([xyz_batch, latent_shapes_expanded], dim=-1)
         for cxyz_1 in cxyz_batch:
             sdf = self.forward(None, None, cxyz_1=cxyz_1)
-
-            grid_sdf = sdf.reshape(
+            sdf_grid = sdf.reshape(
                 self.configuration.GRID_SIZE_RECONSTRUCTION,
                 self.configuration.GRID_SIZE_RECONSTRUCTION,
                 self.configuration.GRID_SIZE_RECONSTRUCTION,
             )
+            sdf_grid = sdf_grid.cpu().numpy()
 
+            vertices, faces, _, _ = skimage.measure.marching_cubes(sdf_grid, level=0.00)
 
+            if normalize:
+                x_max = np.array([1, 1, 1])
+                x_min = np.array([0, 0, 0])
+                vertices = vertices * ((x_max - x_min) / grid_size_axis) + x_min
 
-        vertices, faces, _, _ = skimage.measure.marching_cubes(grid_sdf, level=0.00)
+            mesh = trimesh.Trimesh(vertices, faces)
+
+            if check_watertight and not mesh.is_watertight:
+                vertices, faces = pcu.make_mesh_watertight(mesh.vertices, mesh.faces, resolution=100000)
+                mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
+
+            if map_z_to_y:
+                mesh.vertices[:, [1, 2]] = mesh.vertices[:, [2, 1]]
 
         self.train()
 
