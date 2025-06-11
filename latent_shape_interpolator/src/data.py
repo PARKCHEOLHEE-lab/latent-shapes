@@ -121,13 +121,36 @@ class DataCreator:
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
 
     def _sample_points(self, mesh: trimesh.Trimesh) -> np.ndarray:
-        surface_points_sampled, _ = trimesh.sample.sample_surface(mesh, self.configuration.N_SURFACE_SAMPLING)
-        surface_points_noisy_sampled = surface_points_sampled.copy() + np.random.uniform(
-            -self.configuration.NOISE, self.configuration.NOISE, size=surface_points_sampled.shape
+        
+        # sample surface points
+        surface_points_sampled, _ = trimesh.sample.sample_surface(
+            mesh, self.configuration.N_SURFACE_SAMPLING
         )
 
+        # sample surface points with noise
+        surface_points_noisy_sampled, _ = trimesh.sample.sample_surface(
+            mesh, self.configuration.N_SURFACE_NOISY_SAMPLING
+        )
+
+        surface_points_noisy_sampled += np.random.uniform(
+            -self.configuration.NOISE, 
+            self.configuration.NOISE, 
+            size=surface_points_noisy_sampled.shape
+        )
+
+        # sample volume points
         volume_points_sampled = np.random.uniform(
-            self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, size=(self.configuration.N_VOLUME_SAMPLING, 3)
+            self.configuration.MIN_BOUND, 
+            self.configuration.MAX_BOUND, 
+            size=(self.configuration.N_VOLUME_SAMPLING, 3)
+        )
+        
+        # check if the number of sampled points is same as N_TOTAL_SAMPLING
+        assert (
+            surface_points_sampled.shape[0] 
+            + surface_points_noisy_sampled.shape[0] 
+            + volume_points_sampled.shape[0] 
+            == self.configuration.N_TOTAL_SAMPLING
         )
 
         return np.concatenate([surface_points_sampled, surface_points_noisy_sampled, volume_points_sampled])
