@@ -255,9 +255,9 @@ class SDFDataset(Dataset):
 
         self.num_classes = len(self.data_path)
 
-        self.total_length = self.configuration.GRID_SIZE**3 * len(self.data_path)
+        self.total_length = self.configuration.N_TOTAL_SAMPLING * len(self.data_path)
         self.cumulative_length = [0] + [
-            self.configuration.GRID_SIZE**3 * i for i in range(1, len(self.data_path) + 1)
+            self.configuration.N_TOTAL_SAMPLING * i for i in range(1, len(self.data_path) + 1)
         ]
 
         self.max_sdf = -np.inf
@@ -289,7 +289,7 @@ class SDFDataset(Dataset):
 
         data = np.load(self.data_path[file_idx])
 
-        idx = _idx % self.configuration.GRID_SIZE**3
+        idx = _idx % self.configuration.N_TOTAL_SAMPLING
 
         xyz = torch.tensor(data["xyz"][idx], dtype=torch.float32)
         sdf = torch.tensor(data["sdf"][idx], dtype=torch.float32)
@@ -315,19 +315,17 @@ class SDFDataset(Dataset):
 
         sdf_dataset = SDFDataset(data_dir, configuration, data_slicer)
 
-        points_per_class = sdf_dataset.configuration.GRID_SIZE**3
+        train_size_per_class = int(configuration.N_TOTAL_SAMPLING * configuration.TRAIN_VALIDATION_RATIO[0])
+        val_size_per_class = configuration.N_TOTAL_SAMPLING - train_size_per_class
 
-        train_size_per_class = int(points_per_class * configuration.TRAIN_VALIDATION_RATIO[0])
-        val_size_per_class = points_per_class - train_size_per_class
-
-        assert train_size_per_class + val_size_per_class == points_per_class
+        assert train_size_per_class + val_size_per_class == configuration.N_TOTAL_SAMPLING
 
         train_subsets = []
         validation_subsets = []
 
         for class_idx in range(sdf_dataset.num_classes):
-            start_idx = class_idx * points_per_class
-            end_idx = (class_idx + 1) * points_per_class
+            start_idx = class_idx * configuration.N_TOTAL_SAMPLING
+            end_idx = (class_idx + 1) * configuration.N_TOTAL_SAMPLING
 
             class_indices = list(range(start_idx, end_idx))
             random.shuffle(class_indices)
