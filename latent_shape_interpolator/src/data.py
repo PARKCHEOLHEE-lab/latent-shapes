@@ -322,6 +322,7 @@ class SDFDataset(Dataset):
 
         train_subsets = []
         validation_subsets = []
+        latent_points_list = []
 
         for class_idx in range(sdf_dataset.num_classes):
             start_idx = class_idx * configuration.N_TOTAL_SAMPLING
@@ -335,6 +336,9 @@ class SDFDataset(Dataset):
 
             train_subsets.append(Subset(sdf_dataset, train_indices))
             validation_subsets.append(Subset(sdf_dataset, val_indices))
+            latent_points_list.append(sdf_dataset[start_idx][3])
+
+        assert len(latent_points_list) == sdf_dataset.num_classes
 
         train_dataset = torch.utils.data.ConcatDataset(train_subsets)
         validation_dataset = torch.utils.data.ConcatDataset(validation_subsets)
@@ -346,6 +350,7 @@ class SDFDataset(Dataset):
         sdf_dataset.train_dataloader = train_dataloader
         sdf_dataset.validation_dataset = validation_dataset
         sdf_dataset.validation_dataloader = validation_dataloader
+        sdf_dataset.latent_points = torch.stack(latent_points_list)
 
         return sdf_dataset
 
