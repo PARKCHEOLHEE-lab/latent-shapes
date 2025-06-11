@@ -152,6 +152,7 @@ class DataCreator:
             mesh = trimesh.util.concatenate(geo_list)
 
         if not mesh.is_watertight:
+            print(f"{file} is not watertight, making it watertight...", flush=True)
             vertices, faces = pcu.make_mesh_watertight(
                 mesh.vertices, mesh.faces, resolution=self.configuration.WATERTIGHT_RESOLUTION
             )
@@ -159,7 +160,7 @@ class DataCreator:
             mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
 
             if not mesh.is_watertight:
-                print(f"{file} is not watertight", flush=True)
+                print(f"{file} is not watertight, skipping...", flush=True)
                 return False
 
         # map z to y
