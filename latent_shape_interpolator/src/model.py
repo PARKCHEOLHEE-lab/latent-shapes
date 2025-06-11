@@ -10,32 +10,34 @@ if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys
 from latent_shape_interpolator.src.config import Configuration
 
 
-class MultiVectorEmbedding(nn.Module):
-    def __init__(self, num_classes: int, num_latent_points: int, min_bound: float, max_bound: float):
+class LatentPoints(nn.Module):
+    def __init__(self, latent_points: int, min_bound: float, max_bound: float):
         super().__init__()
 
-        self.num_classes = num_classes
-        self.num_latent_points = num_latent_points
+        self.latent_points = latent_points
+        
+        # add noise to latent points
+        self.noise = min_bound + torch.rand_like(latent_points) * (max_bound - min_bound)
+        self.latent_points_with_noise = self.latent_points + self.noise
 
-        self.multi_vector_embedding = nn.Parameter(torch.randn(self.num_classes, self.num_latent_points, 3))
-        nn.init.uniform_(self.multi_vector_embedding.data, min_bound, max_bound)
+        # initialize latent points with noise
+        self.multi_vector_embedding = nn.Parameter(self.latent_points_with_noise)
 
     def forward(self, class_number: torch.Tensor) -> torch.Tensor:
         return self.multi_vector_embedding[class_number]
 
 
 class SDFDecoder(nn.Module):
-    def __init__(self, num_classes: int, configuration: Configuration):
+    def __init__(self, latent_points: torch.Tensor, configuration: Configuration):
         super().__init__()
 
-        self.num_classes = num_classes
+        self.latent_points = latent_points
         self.configuration = configuration
 
-        self.latent_points_embedding = MultiVectorEmbedding(
-            num_classes,
-            self.configuration.NUM_LATENT_POINTS,
-            self.configuration.MIN_BOUND,
-            self.configuration.MAX_BOUND,
+        self.latent_points_embedding = LatentPoints(
+            latent_points=self.latent_points,
+            min_bound=-self.configuration.LATENT_POINTS_NOISE,
+            max_bound=self.configuration.LATENT_POINTS_NOISE,
         )
 
         self.main_1_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3

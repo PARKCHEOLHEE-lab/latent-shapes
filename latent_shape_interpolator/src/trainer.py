@@ -218,7 +218,11 @@ if __name__ == "__main__":
         data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=5
     )
 
-    sdf_decoder = SDFDecoder(num_classes=sdf_dataset.num_classes, configuration=configuration)
+    sdf_decoder = SDFDecoder(
+        latent_points=sdf_dataset.latent_points,
+        configuration=configuration,
+    )
+
     sdf_decoder_optimizer = getattr(torch.optim, configuration.OPTIMIZER)(
         [
             {"params": sdf_decoder.latent_points_embedding.parameters(), "lr": configuration.LR_LATENT_POINTS},
