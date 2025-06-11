@@ -38,7 +38,7 @@ class DataConfiguration:
     WATERTIGHT_RESOLUTION = 70000
 
     NUM_LATENT_POINTS = 26
-    GRID_SIZE_RECONSTRUCTION = 192
+    GRID_SIZE_RECONSTRUCTION = 72
 
 
 class ModelConfiguration:
@@ -66,6 +66,8 @@ class ModelConfiguration:
     SCHEDULER_FACTOR = 0.1
 
     TRAIN_VALIDATION_RATIO = [0.8, 0.2]
+    
+    RECONSTRUCTION_INTERVAL = 10
 
     OPTIMIZER = "AdamW"
 
