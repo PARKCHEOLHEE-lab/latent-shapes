@@ -372,6 +372,7 @@ class SDFDataset(Dataset):
             latent_shapes.append(sdf_dataset[start_idx][3])
 
         assert len(latent_shapes) == sdf_dataset.num_classes
+        assert len(sdf_dataset) == sdf_dataset.num_classes * configuration.N_TOTAL_SAMPLING
 
         train_dataset = torch.utils.data.ConcatDataset(train_subsets)
         validation_dataset = torch.utils.data.ConcatDataset(validation_subsets)
