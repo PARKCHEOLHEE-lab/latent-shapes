@@ -206,11 +206,20 @@ class DataCreator:
 
         return True
 
-    def create(self, map_z_to_y: bool = True, overwrite: bool = False, use_multiprocessing: bool = True) -> None:
+    def create(
+        self,
+        map_z_to_y: bool = True,
+        overwrite: bool = False,
+        use_multiprocessing: bool = True,
+        slicer: Optional[int] = None,
+    ) -> None:
         tasks: List[Tuple[str, bool]]
         tasks = []
 
         data_list = sorted(os.listdir(self.configuration.DATA_PATH))
+        if isinstance(slicer, int):
+            data_list = data_list[:slicer]
+
         for file in data_list:
             tasks.append((file, map_z_to_y, overwrite))
 
