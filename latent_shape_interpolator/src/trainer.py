@@ -178,7 +178,7 @@ class Trainer:
                     torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
                 )
 
-                reconstruction_results = self.sdf_decoder.reconstruct(latent_shapes)
+                reconstruction_results = self.sdf_decoder.reconstruct(latent_shapes, save_path=self.log_dir)
 
                 if reconstruction_results.count(False) == self.configuration.RECONSTRUCTION_COUNT:
                     print(f"All reconstructions failed at epoch {epoch}")

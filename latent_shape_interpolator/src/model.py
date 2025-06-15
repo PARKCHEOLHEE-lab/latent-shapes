@@ -89,6 +89,7 @@ class SDFDecoder(nn.Module):
     def reconstruct(
         self,
         latent_shapes: torch.Tensor,
+        save_path: str,
         normalize: bool = True,
         check_watertight: bool = False,
         map_z_to_y: bool = False,
@@ -112,28 +113,34 @@ class SDFDecoder(nn.Module):
         )
         xx, yy, zz = torch.meshgrid(x, y, z, indexing="ij")
         xyz = torch.stack([xx, yy, zz], dim=-1).reshape(-1, 3).to(self.configuration.DEVICE)
-        xyz_batch = xyz.expand(latent_shapes.shape[0], -1, -1)
-
-        latent_shapes_flattened = latent_shapes.reshape(latent_shapes.shape[0], 1, -1)
-        latent_shapes_expanded = latent_shapes_flattened.expand(-1, xyz_batch.shape[1], -1)
 
         results = []
 
-        cxyz_batch = torch.cat([xyz_batch, latent_shapes_expanded], dim=-1)
-        for ci, cxyz_1 in enumerate(cxyz_batch):
-            sdf = self.forward(None, None, cxyz_1=cxyz_1)
+        for lsi, latent_shape in enumerate(latent_shapes):
+            latent_shape_flattened = latent_shape.reshape(1, -1)
 
-            if not (sdf.min() <= self.configuration.MARCHING_CUBES_LEVEL <= sdf.max()):
+            sdfs = []
+            xyz_splitted = xyz.split(self.configuration.GRID_SIZE_RECONSTRUCTION * 10)
+
+            for xyz_batch in xyz_splitted:
+                latent_shape_expanded = latent_shape_flattened.expand(xyz_batch.shape[0], -1)
+                cxyz_1 = torch.cat([xyz_batch, latent_shape_expanded], dim=-1)
+
+                sdf = self.forward(None, None, cxyz_1=cxyz_1)
+                sdfs.append(sdf)
+
+            sdfs = torch.cat(sdfs, dim=0).cpu().numpy()
+
+            if not (sdfs.min() <= self.configuration.MARCHING_CUBES_LEVEL <= sdfs.max()):
                 print(f"sdf is not in the range of {self.configuration.MARCHING_CUBES_LEVEL}")
                 results.append(False)
                 continue
 
-            sdf_grid = sdf.reshape(
+            sdf_grid = sdfs.reshape(
                 self.configuration.GRID_SIZE_RECONSTRUCTION,
                 self.configuration.GRID_SIZE_RECONSTRUCTION,
                 self.configuration.GRID_SIZE_RECONSTRUCTION,
             )
-            sdf_grid = sdf_grid.cpu().numpy()
 
             vertices, faces, _, _ = skimage.measure.marching_cubes(
                 sdf_grid, level=self.configuration.MARCHING_CUBES_LEVEL
@@ -159,8 +166,7 @@ class SDFDecoder(nn.Module):
             if map_z_to_y:
                 mesh.vertices[:, [1, 2]] = mesh.vertices[:, [2, 1]]
 
-            # TODO: set save path
-            mesh.export(f"mesh_reconstructed_{ci}.obj")
+            mesh.export(os.path.join(save_path, f"mesh_reconstructed_{lsi}.obj"))
 
             results.append(True)
 
