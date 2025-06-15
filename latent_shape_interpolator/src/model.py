@@ -152,7 +152,7 @@ class SDFDecoder(nn.Module):
 
             if check_watertight and not mesh.is_watertight:
                 vertices, faces = pcu.make_mesh_watertight(
-                    mesh.vertices, mesh.faces, resolution=self.configuration.WATERTIGHT_RECONSTRUCTION_RESOLUTION
+                    mesh.vertices, mesh.faces, resolution=self.configuration.RECONSTRUCTION_WATERTIGHT_RESOLUTION
                 )
                 mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
 
