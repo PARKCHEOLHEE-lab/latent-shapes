@@ -117,12 +117,15 @@ class SDFDecoder(nn.Module):
         latent_shapes_flattened = latent_shapes.reshape(latent_shapes.shape[0], 1, -1)
         latent_shapes_expanded = latent_shapes_flattened.expand(-1, xyz_batch.shape[1], -1)
 
+        results = []
+
         cxyz_batch = torch.cat([xyz_batch, latent_shapes_expanded], dim=-1)
-        for cxyz_1 in cxyz_batch:
+        for ci, cxyz_1 in enumerate(cxyz_batch):
             sdf = self.forward(None, None, cxyz_1=cxyz_1)
 
             if not (sdf.min() <= self.configuration.MARCHING_CUBES_LEVEL <= sdf.max()):
                 print(f"sdf is not in the range of {self.configuration.MARCHING_CUBES_LEVEL}")
+                results.append(False)
                 continue
 
             sdf_grid = sdf.reshape(
@@ -156,8 +159,11 @@ class SDFDecoder(nn.Module):
             if map_z_to_y:
                 mesh.vertices[:, [1, 2]] = mesh.vertices[:, [2, 1]]
 
+            # TODO: set save path
+            mesh.export(f"mesh_reconstructed_{ci}.obj")
+
+            results.append(True)
+
         self.train()
 
-        # # TODO: Save to mesh
-
-        return
+        return results
