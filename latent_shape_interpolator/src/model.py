@@ -120,6 +120,11 @@ class SDFDecoder(nn.Module):
         cxyz_batch = torch.cat([xyz_batch, latent_shapes_expanded], dim=-1)
         for cxyz_1 in cxyz_batch:
             sdf = self.forward(None, None, cxyz_1=cxyz_1)
+
+            if not (sdf.min() <= self.configuration.MARCHING_CUBES_LEVEL <= sdf.max()):
+                print(f"sdf is not in the range of {self.configuration.MARCHING_CUBES_LEVEL}")
+                continue
+
             sdf_grid = sdf.reshape(
                 self.configuration.GRID_SIZE_RECONSTRUCTION,
                 self.configuration.GRID_SIZE_RECONSTRUCTION,
@@ -127,7 +132,9 @@ class SDFDecoder(nn.Module):
             )
             sdf_grid = sdf_grid.cpu().numpy()
 
-            vertices, faces, _, _ = skimage.measure.marching_cubes(sdf_grid, level=0.00)
+            vertices, faces, _, _ = skimage.measure.marching_cubes(
+                sdf_grid, level=self.configuration.MARCHING_CUBES_LEVEL
+            )
 
             if normalize:
                 vertices = vertices / vertices.max()
