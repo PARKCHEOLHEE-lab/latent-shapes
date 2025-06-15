@@ -2,7 +2,9 @@ import os
 import sys
 import torch
 import skimage
+import trimesh
 import torch.nn as nn
+import point_cloud_utils as pcu
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -128,9 +130,13 @@ class SDFDecoder(nn.Module):
             vertices, faces, _, _ = skimage.measure.marching_cubes(sdf_grid, level=0.00)
 
             if normalize:
-                x_max = np.array([1, 1, 1])
-                x_min = np.array([0, 0, 0])
-                vertices = vertices * ((x_max - x_min) / grid_size_axis) + x_min
+                vertices = vertices / vertices.max()
+                vertices = self.configuration.MIN_BOUND + vertices * (
+                    self.configuration.MAX_BOUND - self.configuration.MIN_BOUND
+                )
+
+                assert vertices.min() >= self.configuration.MIN_BOUND
+                assert vertices.max() <= self.configuration.MAX_BOUND
 
             mesh = trimesh.Trimesh(vertices, faces)
 
