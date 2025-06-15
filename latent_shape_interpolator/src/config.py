@@ -5,7 +5,7 @@ import numpy as np
 
 
 class DataConfiguration:
-    GRID_SIZE = 64
+    GRID_SIZE = 32
     MIN_BOUND = -1.0
     MAX_BOUND = 1.0
     NOISE = 0.05
@@ -46,7 +46,7 @@ class ModelConfiguration:
     EPOCHS = 5000
     SEED = 777
 
-    BATCH_SIZE = 64
+    BATCH_SIZE = 512
     ACCUMULATION_STEPS = 1
 
     HIDDEN_DIM = 512
