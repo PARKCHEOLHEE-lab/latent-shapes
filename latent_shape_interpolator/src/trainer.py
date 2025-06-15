@@ -175,10 +175,13 @@ class Trainer:
 
             if epoch == 1 or epoch % self.configuration.RECONSTRUCTION_INTERVAL == 0:
                 latent_shapes = self.sdf_decoder.latent_shapes_embedding(
-                    torch.randperm(self.sdf_dataset.num_classes)[:5]
+                    torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
                 )
 
-                self.sdf_decoder.reconstruct(latent_shapes)
+                reconstruction_results = self.sdf_decoder.reconstruct(latent_shapes)
+
+                if reconstruction_results.count(False) == self.configuration.RECONSTRUCTION_COUNT:
+                    print(f"All reconstructions failed at epoch {epoch}")
 
             self.summary_writer.add_scalar("loss_mean", loss_mean, epoch)
             self.summary_writer.add_scalar("loss_sdf_mean", loss_sdf_mean, epoch)
