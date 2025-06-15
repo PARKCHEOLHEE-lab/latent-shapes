@@ -68,6 +68,7 @@ class ModelConfiguration:
     TRAIN_VALIDATION_RATIO = [0.8, 0.2]
 
     RECONSTRUCTION_INTERVAL = 10
+    MARCHING_CUBES_LEVEL = 0.00
 
     OPTIMIZER = "AdamW"
 
