@@ -149,7 +149,6 @@ class DataCreator:
         return np.concatenate([surface_points_sampled, surface_points_noisy_sampled, volume_points_sampled])
 
     def _create_one(self, file: str, map_z_to_y: bool) -> bool:
-
         print(f"processing {file}", flush=True)
 
         # load mesh
@@ -215,16 +214,16 @@ class DataCreator:
         data_list = sorted(os.listdir(self.configuration.DATA_PATH))
         if isinstance(slicer, int):
             data_list = data_list[:slicer]
-            
+
         data_list = [
             os.path.join(
                 self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
             )
-            for file in data_list    
+            for file in data_list
         ]
 
         for file in data_list:
-            tasks.append((file, map_z_to_y)) 
+            tasks.append((file, map_z_to_y))
 
         print("creating...", flush=True)
 
@@ -280,8 +279,8 @@ class SDFDataset(Dataset):
         self.data_path = []
         for folder in data_list:
             each_data_dir = os.path.join(self.configuration.DATA_PATH_PROCESSED, folder)
-            each_data_name, *remain = os.listdir(each_data_dir)
-            assert len(remain) == 0
+            each_data_name, *_ = os.listdir(each_data_dir)
+            assert each_data_name.endswith(".npz")
 
             each_data_path = os.path.join(each_data_dir, each_data_name)
             if os.path.exists(each_data_path):
@@ -396,4 +395,4 @@ class SDFDataset(Dataset):
 if __name__ == "__main__":
     configuration = Configuration()
     data_creator = DataCreator(configuration=configuration)
-    data_creator.create(map_z_to_y=True, use_multiprocessing=True, copy_obj=False, slicer=5)
+    data_creator.create(map_z_to_y=True, use_multiprocessing=True, copy_obj=True, slicer=5)
