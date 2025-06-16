@@ -51,8 +51,6 @@ class Trainer:
         self.states = {
             "epoch": 1,
             "loss_mean": torch.inf,
-            "loss_sdf": torch.inf,
-            "loss_latent_shapes": torch.inf,
             "loss_mean_val": torch.inf,
             "loss_sdf_val": torch.inf,
             "loss_latent_shapes_val": torch.inf,
@@ -94,78 +92,64 @@ class Trainer:
         self.sdf_decoder.eval()
 
         losses_val = []
-        losses_sdf_val = []
-        losses_latent_shapes_val = []
 
         for _, data in tqdm(
             enumerate(self.sdf_dataset.validation_dataloader), total=len(self.sdf_dataset.validation_dataloader)
         ):
             xyz_batch, sdf_batch, class_number_batch, _, _ = data
-            
+
             latent_shapes_batch = self.sdf_decoder.latent_shapes_embedding(class_number_batch)
-            latent_shapes_batch += (
-                -self.configuration.LATENT_POINTS_NOISE
-                + torch.rand_like(latent_shapes_batch)
-                * (self.configuration.LATENT_POINTS_NOISE - (-self.configuration.LATENT_POINTS_NOISE))
+            latent_shapes_batch = latent_shapes_batch.reshape(latent_shapes_batch.shape[0], -1)
+
+            # add noise
+            latent_shapes_batch += -self.configuration.LATENT_POINTS_NOISE + torch.rand_like(latent_shapes_batch) * (
+                self.configuration.LATENT_POINTS_NOISE - (-self.configuration.LATENT_POINTS_NOISE)
             )
 
-            sdf_preds = self.sdf_decoder(latent_shapes_batch, xyz_batch)
+            cxyz = torch.cat((xyz_batch, latent_shapes_batch), dim=1)
+
+            sdf_preds = self.sdf_decoder(cxyz)
+
             sdf_preds = torch.clamp(sdf_preds, min=-self.configuration.CLAMP, max=self.configuration.CLAMP)
             sdf_batch = torch.clamp(sdf_batch, min=-self.configuration.CLAMP, max=self.configuration.CLAMP)
 
-            loss_sdf = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
-            # loss_latent_shapes = torch.nn.functional.mse_loss(
-            #     self.sdf_decoder.latent_shapes_embedding(class_number_batch), latent_shapes_batch
-            # )
-            
-            loss_latent_shapes = torch.tensor(0.0)
-
-            loss = loss_sdf + loss_latent_shapes
+            loss = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
 
             losses_val.append(loss.item())
-            losses_sdf_val.append(loss_sdf.item())
-            losses_latent_shapes_val.append(loss_latent_shapes.item())
 
         loss_mean_val = torch.tensor(losses_val).mean()
-        loss_sdf_mean_val = torch.tensor(losses_sdf_val).mean()
-        loss_latent_shapes_mean_val = torch.tensor(losses_latent_shapes_val).mean()
 
         # re-set to training mode
         self.sdf_decoder.train()
 
-        return loss_mean_val, loss_sdf_mean_val, loss_latent_shapes_mean_val
+        return loss_mean_val
 
     def _train_each_epoch(self) -> Tuple[float, float, float]:
         """ """
 
         losses = []
-        losses_sdf = []
-        losses_latent_shapes = []
 
         for batch_index, data in tqdm(
             enumerate(self.sdf_dataset.train_dataloader), total=len(self.sdf_dataset.train_dataloader)
         ):
             xyz_batch, sdf_batch, class_number_batch, _, _ = data
-            
+
             latent_shapes_batch = self.sdf_decoder.latent_shapes_embedding(class_number_batch)
-            latent_shapes_batch += (
-                -self.configuration.LATENT_POINTS_NOISE
-                + torch.rand_like(latent_shapes_batch)
-                * (self.configuration.LATENT_POINTS_NOISE - (-self.configuration.LATENT_POINTS_NOISE))
+            latent_shapes_batch = latent_shapes_batch.reshape(latent_shapes_batch.shape[0], -1)
+
+            # add noise
+            latent_shapes_batch += -self.configuration.LATENT_POINTS_NOISE + torch.rand_like(latent_shapes_batch) * (
+                self.configuration.LATENT_POINTS_NOISE - (-self.configuration.LATENT_POINTS_NOISE)
             )
 
-            sdf_preds = self.sdf_decoder(latent_shapes_batch, xyz_batch)
+            cxyz = torch.cat((xyz_batch, latent_shapes_batch), dim=1)
+
+            sdf_preds = self.sdf_decoder(cxyz)
+
             sdf_preds = torch.clamp(sdf_preds, min=-self.configuration.CLAMP, max=self.configuration.CLAMP)
             sdf_batch = torch.clamp(sdf_batch, min=-self.configuration.CLAMP, max=self.configuration.CLAMP)
 
-            loss_sdf = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
-            # loss_latent_shapes = torch.nn.functional.mse_loss(
-            #     self.sdf_decoder.latent_shapes_embedding(class_number_batch), latent_shapes_batch
-            # )
-            
-            loss_latent_shapes = torch.tensor(0.0)
-
-            loss = loss_sdf + loss_latent_shapes
+            loss = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
             loss /= self.configuration.ACCUMULATION_STEPS
 
             loss.backward()
@@ -174,29 +158,19 @@ class Trainer:
                 self.sdf_decoder_optimizer.zero_grad()
 
             losses.append(loss.item() * self.configuration.ACCUMULATION_STEPS)
-            losses_sdf.append(loss_sdf.item() * self.configuration.ACCUMULATION_STEPS)
-            losses_latent_shapes.append(loss_latent_shapes.item() * self.configuration.ACCUMULATION_STEPS)
 
         loss_mean = torch.tensor(losses).mean()
-        loss_sdf_mean = torch.tensor(losses_sdf).mean()
-        loss_latent_shapes_mean = torch.tensor(losses_latent_shapes).mean()
 
-        return loss_mean, loss_sdf_mean, loss_latent_shapes_mean
+        return loss_mean
 
     def train(self) -> None:
         epoch_start = self.states["epoch"]
         epoch_end = self.configuration.EPOCHS + 1
 
         for epoch in tqdm(range(epoch_start, epoch_end)):
-            loss_mean, loss_sdf_mean, loss_latent_shapes_mean = self._train_each_epoch()
-            print(loss_mean)
-            print(loss_sdf_mean)
-            print(loss_latent_shapes_mean)
-
-            # loss_mean_val, loss_sdf_mean_val, loss_latent_shapes_mean_val = self._evaluate_each_epoch()
+            loss_mean = self._train_each_epoch()
+            # loss_mean_val = self._evaluate_each_epoch()
             loss_mean_val = 0.0
-            loss_sdf_mean_val = 0.0
-            loss_latent_shapes_mean_val = 0.0
 
             loss_mean_weighted_sum = (
                 loss_mean * self.configuration.LOSS_TRAIN_WEIGHT
@@ -207,26 +181,16 @@ class Trainer:
                 latent_shapes_batch = self.sdf_decoder.latent_shapes_embedding(
                     torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
                 )
-                
-                latent_shapes_batch += (
-                    -self.configuration.LATENT_POINTS_NOISE
-                    + torch.rand_like(latent_shapes_batch)
-                    * (self.configuration.LATENT_POINTS_NOISE - (-self.configuration.LATENT_POINTS_NOISE))
-                )
 
-                reconstruction_results = self.sdf_decoder.reconstruct(latent_shapes_batch, save_path=self.log_dir)
+                reconstruction_results = self.sdf_decoder.reconstruct(
+                    latent_shapes_batch, save_path=self.log_dir, add_noise=False
+                )
 
                 if reconstruction_results.count(False) == self.configuration.RECONSTRUCTION_COUNT:
                     print(f"All reconstructions failed at epoch {epoch}")
 
             self.summary_writer.add_scalar("loss_mean", loss_mean, epoch)
-            self.summary_writer.add_scalar("loss_sdf_mean", loss_sdf_mean, epoch)
-            self.summary_writer.add_scalar("loss_latent_shapes_mean", loss_latent_shapes_mean, epoch)
-
             self.summary_writer.add_scalar("loss_mean_val", loss_mean_val, epoch)
-            self.summary_writer.add_scalar("loss_sdf_mean_val", loss_sdf_mean_val, epoch)
-            self.summary_writer.add_scalar("loss_latent_shapes_mean_val", loss_latent_shapes_mean_val, epoch)
-
             self.summary_writer.add_scalar("loss_mean_weighted_sum", loss_mean_weighted_sum, epoch)
 
             self.scheduler.step(loss_mean_weighted_sum)
@@ -236,11 +200,7 @@ class Trainer:
                     {
                         "epoch": epoch,
                         "loss_mean": loss_mean,
-                        "loss_sdf": loss_sdf_mean,
-                        "loss_latent_shapes": loss_latent_shapes_mean,
                         "loss_mean_val": loss_mean_val,
-                        "loss_sdf_val": loss_sdf_mean_val,
-                        "loss_latent_shapes_val": loss_latent_shapes_mean_val,
                         "loss_mean_weighted_sum": loss_mean_weighted_sum,
                         "state_dict_model": self.sdf_decoder.state_dict(),
                         "state_dict_optimizer": self.sdf_decoder_optimizer.state_dict(),

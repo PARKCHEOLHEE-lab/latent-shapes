@@ -6,6 +6,8 @@ import trimesh
 import torch.nn as nn
 import point_cloud_utils as pcu
 
+from typing import Optional
+
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
@@ -13,15 +15,17 @@ from latent_shape_interpolator.src.config import Configuration
 
 
 class LatentShapes(nn.Module):
-    def __init__(self, latent_shapes: int, min_bound: float, max_bound: float):
+    def __init__(self, latent_shapes: int, noise_min: Optional[float] = None, noise_max: Optional[float] = None):
         super().__init__()
 
-        # add noise to latent points
-        self.noise = min_bound + torch.rand_like(latent_shapes) * (max_bound - min_bound)
+        self.noise = torch.zeros_like(latent_shapes)
+        if None not in (noise_min, noise_max):
+            # add noise to latent points
+            self.noise = noise_min + torch.rand_like(latent_shapes) * (noise_max - noise_min)
 
-        # check if the noise range is valid
-        assert torch.all(self.noise >= min_bound)
-        assert torch.all(self.noise <= max_bound)
+            # check if the noise range is valid
+            assert torch.all(self.noise >= noise_min)
+            assert torch.all(self.noise <= noise_max)
 
         # initialize latent points with noise
         self.embedding = nn.Parameter(latent_shapes + self.noise)
@@ -37,11 +41,8 @@ class SDFDecoder(nn.Module):
         self.latent_shapes = latent_shapes
         self.configuration = configuration
 
-        self.latent_shapes_embedding = LatentShapes(
-            latent_shapes=self.latent_shapes,
-            min_bound=0,
-            max_bound=0,
-        )
+        # define latent shapes embedding
+        self.latent_shapes_embedding = LatentShapes(latent_shapes=self.latent_shapes)
 
         self.main_1_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
         self.main_1 = nn.Sequential(
@@ -72,18 +73,12 @@ class SDFDecoder(nn.Module):
 
         self.to(self.configuration.DEVICE)
 
-    def forward(self, latent_shapes: torch.Tensor, xyz: torch.Tensor, cxyz_1: torch.Tensor = None):
-        if cxyz_1 is None:
-            cxyz_1 = torch.cat((xyz.unsqueeze(1), latent_shapes), dim=1)
-            cxyz_1 = cxyz_1.reshape(xyz.shape[0], -1)
+    def forward(self, cxyz: torch.Tensor):
+        x1 = self.main_1(cxyz)
+        x2 = torch.cat((x1, cxyz), dim=1)
+        x3 = self.main_2(x2)
 
-        x1 = self.main_1(cxyz_1)
-
-        cxyz_2 = torch.cat((x1, cxyz_1), dim=1)
-
-        x2 = self.main_2(cxyz_2)
-
-        return x2
+        return x3
 
     @torch.no_grad()
     def reconstruct(
@@ -93,8 +88,14 @@ class SDFDecoder(nn.Module):
         normalize: bool = True,
         check_watertight: bool = False,
         map_z_to_y: bool = True,
+        add_noise: bool = False,
     ):
         self.eval()
+
+        if add_noise:
+            latent_shapes += -self.configuration.LATENT_POINTS_NOISE + torch.rand_like(latent_shapes) * (
+                self.configuration.LATENT_POINTS_NOISE - (-self.configuration.LATENT_POINTS_NOISE)
+            )
 
         x = torch.linspace(
             self.configuration.MIN_BOUND,
@@ -120,13 +121,13 @@ class SDFDecoder(nn.Module):
             latent_shape_flattened = latent_shape.reshape(1, -1)
 
             sdfs = []
-            xyz_splitted = xyz.split(self.configuration.GRID_SIZE_RECONSTRUCTION * 10)
+            xyz_splitted = xyz.split(self.configuration.GRID_SIZE_RECONSTRUCTION * 20)
 
             for xyz_batch in xyz_splitted:
                 latent_shape_expanded = latent_shape_flattened.expand(xyz_batch.shape[0], -1)
-                cxyz_1 = torch.cat([xyz_batch, latent_shape_expanded], dim=-1)
+                cxyz = torch.cat([xyz_batch, latent_shape_expanded], dim=-1)
 
-                sdf = self.forward(None, None, cxyz_1=cxyz_1)
+                sdf = self.forward(cxyz)
                 sdfs.append(sdf)
 
             sdfs = torch.cat(sdfs, dim=0).cpu().numpy()
@@ -156,6 +157,11 @@ class SDFDecoder(nn.Module):
                 assert vertices.max() <= self.configuration.MAX_BOUND
 
             mesh = trimesh.Trimesh(vertices, faces)
+            mesh.vertices -= mesh.centroid
+            
+            # TODO: rescale?
+
+            mesh = trimesh.util.concatenate([mesh, trimesh.Trimesh(vertices=latent_shape.cpu().numpy(), faces=[])])
 
             if check_watertight and not mesh.is_watertight:
                 vertices, faces = pcu.make_mesh_watertight(
