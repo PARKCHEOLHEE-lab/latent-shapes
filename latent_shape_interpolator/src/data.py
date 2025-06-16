@@ -130,7 +130,9 @@ class DataCreator:
         )
 
         surface_points_noisy_sampled += np.random.uniform(
-            -self.configuration.NOISE, self.configuration.NOISE, size=surface_points_noisy_sampled.shape
+            -self.configuration.LATENT_POINTS_NOISE,
+            self.configuration.LATENT_POINTS_NOISE,
+            size=surface_points_noisy_sampled.shape,
         )
 
         # sample volume points
@@ -146,18 +148,12 @@ class DataCreator:
 
         return np.concatenate([surface_points_sampled, surface_points_noisy_sampled, volume_points_sampled])
 
-    def _create_one(self, file: str, map_z_to_y: bool, overwrite: bool) -> bool:
-        obj_path = os.path.join(
-            self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
-        )
-
-        if not overwrite and os.path.exists(obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")):
-            return True
+    def _create_one(self, file: str, map_z_to_y: bool) -> bool:
 
         print(f"processing {file}", flush=True)
 
         # load mesh
-        mesh = trimesh.load(obj_path)
+        mesh = trimesh.load(file)
 
         if isinstance(mesh, trimesh.Scene):
             geo_list = []
@@ -197,7 +193,7 @@ class DataCreator:
         sdf, *_ = pcu.signed_distance_to_mesh(xyz, mesh.vertices, mesh.faces)
 
         np.savez(
-            obj_path.replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz"),
+            file.replace(self.configuration.DATA_NAME_OBJ, f"{file.split('/')[-3]}.npz"),
             xyz=xyz,
             sdf=sdf,
             latent_shape=latent_shape,
@@ -209,8 +205,8 @@ class DataCreator:
     def create(
         self,
         map_z_to_y: bool = True,
-        overwrite: bool = False,
         use_multiprocessing: bool = True,
+        copy_obj: bool = False,
         slicer: Optional[int] = None,
     ) -> None:
         tasks: List[Tuple[str, bool]]
@@ -219,9 +215,16 @@ class DataCreator:
         data_list = sorted(os.listdir(self.configuration.DATA_PATH))
         if isinstance(slicer, int):
             data_list = data_list[:slicer]
+            
+        data_list = [
+            os.path.join(
+                self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
+            )
+            for file in data_list    
+        ]
 
         for file in data_list:
-            tasks.append((file, map_z_to_y, overwrite))
+            tasks.append((file, map_z_to_y)) 
 
         print("creating...", flush=True)
 
@@ -235,22 +238,28 @@ class DataCreator:
 
         print("assigning class number...", flush=True)
 
-        os.makedirs(self.configuration.DATA_PATH_PROCESSED, exist_ok=True)
+        if os.path.exists(self.configuration.DATA_PATH_PROCESSED):
+            shutil.rmtree(self.configuration.DATA_PATH_PROCESSED)
+
+        os.makedirs(self.configuration.DATA_PATH_PROCESSED, exist_ok=False)
+
         class_number = 0
         for file, result in zip(data_list, results):
             if result:
-                data_path = os.path.join(
-                    self.configuration.DATA_PATH, file, self.configuration.DATA_NAME, self.configuration.DATA_NAME_OBJ
-                ).replace(self.configuration.DATA_NAME_OBJ, f"{file}.npz")
+                data_path = file.replace(self.configuration.DATA_NAME_OBJ, f"{file.split('/')[-3]}.npz")
 
                 data = np.load(data_path)
                 data_with_class_number = {**data, "class_number": class_number}
                 np.savez(data_path, **data_with_class_number)
 
-                os.makedirs(os.path.join(self.configuration.DATA_PATH_PROCESSED, f"{class_number}"), exist_ok=True)
-                shutil.move(
-                    data_path, os.path.join(self.configuration.DATA_PATH_PROCESSED, f"{class_number}", f"{file}.npz")
-                )
+                class_number_dir = os.path.join(self.configuration.DATA_PATH_PROCESSED, f"{class_number}")
+
+                os.makedirs(class_number_dir, exist_ok=True)
+
+                shutil.move(data_path, os.path.join(class_number_dir, os.path.basename(data_path)))
+
+                if copy_obj:
+                    shutil.copy(file, os.path.join(class_number_dir, os.path.basename(data_path).replace("npz", "obj")))
 
                 class_number += 1
 
@@ -387,4 +396,4 @@ class SDFDataset(Dataset):
 if __name__ == "__main__":
     configuration = Configuration()
     data_creator = DataCreator(configuration=configuration)
-    data_creator.create(overwrite=True)
+    data_creator.create(map_z_to_y=True, use_multiprocessing=True, copy_obj=False, slicer=5)

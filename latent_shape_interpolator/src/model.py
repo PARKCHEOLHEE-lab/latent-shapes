@@ -39,8 +39,8 @@ class SDFDecoder(nn.Module):
 
         self.latent_shapes_embedding = LatentShapes(
             latent_shapes=self.latent_shapes,
-            min_bound=-self.configuration.LATENT_POINTS_NOISE,
-            max_bound=self.configuration.LATENT_POINTS_NOISE,
+            min_bound=0,
+            max_bound=0,
         )
 
         self.main_1_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
@@ -72,9 +72,9 @@ class SDFDecoder(nn.Module):
 
         self.to(self.configuration.DEVICE)
 
-    def forward(self, class_number: torch.Tensor, xyz: torch.Tensor, cxyz_1: torch.Tensor = None):
+    def forward(self, latent_shapes: torch.Tensor, xyz: torch.Tensor, cxyz_1: torch.Tensor = None):
         if cxyz_1 is None:
-            cxyz_1 = torch.cat((xyz.unsqueeze(1), self.latent_shapes_embedding(class_number)), dim=1)
+            cxyz_1 = torch.cat((xyz.unsqueeze(1), latent_shapes), dim=1)
             cxyz_1 = cxyz_1.reshape(xyz.shape[0], -1)
 
         x1 = self.main_1(cxyz_1)
@@ -92,7 +92,7 @@ class SDFDecoder(nn.Module):
         save_path: str,
         normalize: bool = True,
         check_watertight: bool = False,
-        map_z_to_y: bool = False,
+        map_z_to_y: bool = True,
     ):
         self.eval()
 

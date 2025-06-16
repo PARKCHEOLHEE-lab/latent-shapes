@@ -8,7 +8,6 @@ class DataConfiguration:
     GRID_SIZE = 32
     MIN_BOUND = -1.0
     MAX_BOUND = 1.0
-    NOISE = 0.05
 
     N_SURFACE_SAMPLING_RATIO = 0.3
     N_SURFACE_NOISY_SAMPLING_RATIO = 0.5
@@ -38,11 +37,11 @@ class DataConfiguration:
     WATERTIGHT_RESOLUTION = 20000
 
     NUM_LATENT_POINTS = 26
-    GRID_SIZE_RECONSTRUCTION = 256
+    GRID_SIZE_RECONSTRUCTION = 192
 
 
 class ModelConfiguration:
-    EPOCHS = 10
+    EPOCHS = 100
     SEED = 777
 
     BATCH_SIZE = 512
@@ -50,10 +49,10 @@ class ModelConfiguration:
 
     HIDDEN_DIM = 512
 
-    LR_LATENT_POINTS = 1e-4
-    LR_DECODER = 1e-5
+    LR_LATENT_POINTS = 1e-5
+    LR_DECODER = 1e-3
 
-    LATENT_POINTS_NOISE = 0.01
+    LATENT_POINTS_NOISE = 0.1
 
     LOSS_TRAIN_WEIGHT = 0.5
     LOSS_VALIDATION_WEIGHT = 1.0
