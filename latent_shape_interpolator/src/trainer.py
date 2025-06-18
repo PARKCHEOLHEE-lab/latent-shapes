@@ -183,7 +183,12 @@ class Trainer:
                 )
 
                 reconstruction_results = self.sdf_decoder.reconstruct(
-                    latent_shapes_batch, save_path=self.log_dir, add_noise=False
+                    latent_shapes_batch, 
+                    save_path=self.log_dir, 
+                    normalize=True, 
+                    check_watertight=False, 
+                    add_noise=False, 
+                    rescale=True
                 )
 
                 if reconstruction_results.count(False) == self.configuration.RECONSTRUCTION_COUNT:

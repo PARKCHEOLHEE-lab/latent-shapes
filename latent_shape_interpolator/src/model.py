@@ -89,6 +89,7 @@ class SDFDecoder(nn.Module):
         check_watertight: bool = False,
         map_z_to_y: bool = True,
         add_noise: bool = False,
+        rescale: bool = False,
     ):
         self.eval()
 
