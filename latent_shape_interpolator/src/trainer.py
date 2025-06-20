@@ -4,7 +4,7 @@ import pytz
 import torch
 import datetime
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 print(f"CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
 
 from tqdm import tqdm
@@ -188,7 +188,8 @@ class Trainer:
                     normalize=True, 
                     check_watertight=False, 
                     add_noise=False, 
-                    rescale=True
+                    rescale=True,
+                    epoch=epoch,
                 )
 
                 if reconstruction_results.count(False) == self.configuration.RECONSTRUCTION_COUNT:
