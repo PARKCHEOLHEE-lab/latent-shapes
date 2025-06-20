@@ -90,6 +90,7 @@ class SDFDecoder(nn.Module):
         map_z_to_y: bool = True,
         add_noise: bool = False,
         rescale: bool = False,
+        epoch: Optional[int] = None,
     ):
         self.eval()
 
@@ -192,7 +193,11 @@ class SDFDecoder(nn.Module):
             if map_z_to_y:
                 mesh.vertices[:, [1, 2]] = mesh.vertices[:, [2, 1]]
 
-            mesh.export(os.path.join(save_path, f"mesh_reconstructed_{lsi}.obj"))
+            file_path = os.path.join(save_path, f"mesh_reconstructed_{lsi}.obj")
+            if isinstance(epoch, int):
+                file_path = os.path.join(save_path, f"mesh_reconstructed_{lsi}_{epoch}.obj")
+                
+            mesh.export(file_path)
 
             results.append(True)
 
