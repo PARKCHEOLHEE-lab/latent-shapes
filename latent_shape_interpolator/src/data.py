@@ -30,8 +30,8 @@ class DataCreator:
     def _centralize_mesh(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
         centralized_mesh = mesh.copy()
 
-        centralized_mesh.vertices -= centralized_mesh.centroid
-        assert np.allclose(centralized_mesh.centroid, 0)
+        centralized_mesh.vertices -= centralized_mesh.vertices.mean(axis=0)
+        assert np.allclose(centralized_mesh.vertices.mean(axis=0), 0)
 
         return centralized_mesh
 
