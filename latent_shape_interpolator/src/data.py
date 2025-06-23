@@ -395,4 +395,4 @@ class SDFDataset(Dataset):
 if __name__ == "__main__":
     configuration = Configuration()
     data_creator = DataCreator(configuration=configuration)
-    data_creator.create(map_z_to_y=True, use_multiprocessing=True, copy_obj=True, slicer=5)
+    data_creator.create(map_z_to_y=True, use_multiprocessing=True, copy_obj=False, slicer=10)
