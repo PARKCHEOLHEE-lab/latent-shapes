@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>3D Shape Interpolator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+        #container { width: 600px; height: 400px; border: 1px solid #ccc; }
+        button { margin: 10px; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div id="container"></div>
+    <button onclick="reconstruct()">Reconstruct Shape</button>
+    <div id="result"></div>
+
+    <script>
+        let scene, camera, renderer, points = [];
+        
+        // Three.js 초기화
+        scene = new THREE.Scene();
+        camera = new THREE.PerspectiveCamera(75, 600/400, 0.1, 1000);
+        renderer = new THREE.WebGLRenderer();
+        renderer.setSize(600, 400);
+        document.getElementById('container').appendChild(renderer.domElement);
+        
+        camera.position.z = 5;
+        
+        // 클릭으로 포인트 추가
+        renderer.domElement.addEventListener('click', onMouseClick);
+        
+        function onMouseClick(event) {
+            const rect = renderer.domElement.getBoundingClientRect();
+            const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+            const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+            
+            const geometry = new THREE.SphereGeometry(0.05);
+            const material = new THREE.MeshBasicMaterial({color: 0xff0000});
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(x * 2, y * 2, 0);
+            
+            scene.add(sphere);
+            points.push([x * 2, y * 2, 0]);
+            render();
+        }
+        
+        function render() {
+            renderer.render(scene, camera);
+        }
+        
+        function reconstruct() {
+            if (points.length === 0) {
+                alert('포인트를 먼저 추가해주세요');
+                return;
+            }
+            
+            // 포인트를 latent_shapes 형태로 변환 (간단한 예시)
+            const latent_shapes = points.flat();
+            
+            fetch('/reconstruct', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({latent_shapes: latent_shapes})
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('result').innerHTML = data.message;
+            })
+            .catch(error => {
+                document.getElementById('result').innerHTML = 'Error: ' + error;
+            });
+        }
+        
+        render();
+    </script>
+</body>
+</html>
