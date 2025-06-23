@@ -163,20 +163,22 @@ class SDFDecoder(nn.Module):
 
             if rescale:
                 mesh_bounds = mesh.bounds
-                latent_shape_bounds = torch.stack([latent_shape.min(dim=0)[0], latent_shape.max(dim=0)[0]], dim=0).cpu().numpy()
+                latent_shape_bounds = (
+                    torch.stack([latent_shape.min(dim=0)[0], latent_shape.max(dim=0)[0]], dim=0).cpu().numpy()
+                )
 
                 # calculate the dim sizes of the mesh and the latent shape
                 mesh_size = mesh_bounds[1] - mesh_bounds[0]
                 latent_size = latent_shape_bounds[1] - latent_shape_bounds[0]
-                
+
                 # compute scale factors
                 scale_factors = torch.ones(3)
                 for i in range(3):
                     scale_factors[i] = latent_size[i] / (mesh_size[i] + 1e-9)
-                
+
                 # match the reconstructed mesh size to the latent shape size
                 mesh.vertices = mesh.vertices * scale_factors.numpy()
-                
+
                 # centralize the mesh at the latent shape center
                 latent_center = latent_shape_bounds.sum(axis=0) / 2
                 mesh_center = mesh.vertices.mean(axis=0)
@@ -196,7 +198,7 @@ class SDFDecoder(nn.Module):
             file_path = os.path.join(save_path, f"mesh_reconstructed_{lsi}.obj")
             if isinstance(epoch, int):
                 file_path = os.path.join(save_path, f"mesh_reconstructed_{lsi}_{epoch}.obj")
-                
+
             mesh.export(file_path)
 
             results.append(True)
