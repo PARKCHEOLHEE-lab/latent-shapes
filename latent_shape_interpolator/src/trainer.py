@@ -169,8 +169,7 @@ class Trainer:
 
         for epoch in tqdm(range(epoch_start, epoch_end)):
             loss_mean = self._train_each_epoch()
-            # loss_mean_val = self._evaluate_each_epoch()
-            loss_mean_val = 0.0
+            loss_mean_val = self._evaluate_each_epoch()
 
             loss_mean_weighted_sum = (
                 loss_mean * self.configuration.LOSS_TRAIN_WEIGHT
@@ -183,11 +182,11 @@ class Trainer:
                 )
 
                 reconstruction_results = self.sdf_decoder.reconstruct(
-                    latent_shapes_batch, 
-                    save_path=self.log_dir, 
-                    normalize=True, 
-                    check_watertight=False, 
-                    add_noise=False, 
+                    latent_shapes_batch,
+                    save_path=self.log_dir,
+                    normalize=True,
+                    check_watertight=False,
+                    add_noise=False,
                     rescale=True,
                     epoch=epoch,
                 )
@@ -227,7 +226,7 @@ if __name__ == "__main__":
     configuration.set_seed()
 
     sdf_dataset = SDFDataset.create_dataset(
-        data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=1
+        data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=10
     )
 
     sdf_decoder = SDFDecoder(
