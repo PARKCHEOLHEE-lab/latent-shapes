@@ -359,6 +359,7 @@ class SDFDataset(Dataset):
         train_subsets = []
         validation_subsets = []
         latent_shapes = []
+        faces = []
 
         for class_idx in range(sdf_dataset.num_classes):
             start_idx = class_idx * configuration.N_TOTAL_SAMPLING
@@ -373,6 +374,7 @@ class SDFDataset(Dataset):
             train_subsets.append(Subset(sdf_dataset, train_indices))
             validation_subsets.append(Subset(sdf_dataset, val_indices))
             latent_shapes.append(sdf_dataset[start_idx][3])
+            faces.append(sdf_dataset[start_idx][4])
 
         assert len(latent_shapes) == sdf_dataset.num_classes
         assert len(sdf_dataset) == sdf_dataset.num_classes * configuration.N_TOTAL_SAMPLING
@@ -387,7 +389,9 @@ class SDFDataset(Dataset):
         sdf_dataset.train_dataloader = train_dataloader
         sdf_dataset.validation_dataset = validation_dataset
         sdf_dataset.validation_dataloader = validation_dataloader
+
         sdf_dataset.latent_shapes = torch.stack(latent_shapes)
+        sdf_dataset.faces = torch.stack(faces)
 
         return sdf_dataset
 
