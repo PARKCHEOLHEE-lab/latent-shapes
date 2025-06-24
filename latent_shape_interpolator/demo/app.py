@@ -29,25 +29,34 @@ sdf_decoder = SDFDecoder(
 )
 
 sdf_decoder.load_state_dict(
-    torch.load(
-        os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "../runs/06-23-2025__21-24-31/states.pth")
-        )
-    )["state_dict_model"]
+    torch.load(os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/06-23-2025__21-24-31/states.pth")))[
+        "state_dict_model"
+    ]
 )
+
 
 @app.route("/")
 def index():
     return render_template("index.html")
 
-@app.route("/reconstruct", methods=["POST"])
+
+@app.route("/api/latent_shapes", methods=["GET"])
+def get_random_latent_shape():
+    random_index = torch.randint(0, sdf_dataset.latent_shapes.shape[0], (1,))
+    latent_shape = sdf_dataset.latent_shapes[random_index].squeeze(0)
+    faces = sdf_dataset.faces[random_index].squeeze(0)
+
+    return jsonify({"latent_shape": latent_shape.tolist(), "faces": faces.tolist()})
+
+
+@app.route("/api/reconstruct", methods=["POST"])
 def reconstruct():
     try:
         data = request.get_json()
-        
+
         latent_shapes = torch.tensor(data["latent_shapes"]).to(configuration.DEVICE)
         print(latent_shapes)
-        
+
         # results = sdf_decoder.reconstruct(
         #     latent_shapes=latent_shapes,
         #     save_path=os.path.join(os.path.dirname(__file__)),
@@ -57,12 +66,14 @@ def reconstruct():
         #     add_noise=False,
         #     rescale=False,
         # )
-        
+
         # if not results[0]:
         #     return jsonify({"message": "Reconstruction failed"}), 400
-        
+
+        return jsonify({"message": "Reconstruction successful"}), 200
+
     except:
-        return ""
+        return jsonify({"message": "Reconstruction failed"}), 400
 
 
 if __name__ == "__main__":

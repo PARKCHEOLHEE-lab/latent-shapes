@@ -1,76 +1,228 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>3D Shape Interpolator</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <title>latent-shapes</title>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.128.0/examples/jsm/"
+            }
+        }
+    </script>
     <style>
-        #container { width: 600px; height: 400px; border: 1px solid #ccc; }
-        button { margin: 10px; padding: 10px; }
+        body { margin: 0; padding: 0; overflow: hidden; }
+        button {
+            position: absolute;
+            z-index: 1000;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #ccc;
+        }
+        #container { width: 100vw; height: 100vh; }
+        #load_button { top: 10px; left: 10px; }
+        #reconstruct_button { top: 10px; left: 160px; }
+        #result {
+            position: absolute;
+            top: 60px;
+            left: 10px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            border: 1px solid #ccc;
+        }
+        .loading { opacity: 0.5; pointer-events: none; }
     </style>
 </head>
 <body>
     <div id="container"></div>
-    <button onclick="reconstruct()">Reconstruct Shape</button>
-    <div id="result"></div>
+    <button id="load_button" onclick="load_random_shape()">Load Random Shape</button>
+    <button id="reconstruct_button" onclick="reconstruct()">Reconstruct Shape</button>
+    <!-- <div id="result">////////////</div> -->
 
-    <script>
+    <script type="module">
+        import * as THREE from "three";
+        import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+
         let scene, camera, renderer, points = [];
-        
-        // Three.js 초기화
+        let orbit_controls;
+
+        // create scene
         scene = new THREE.Scene();
-        camera = new THREE.PerspectiveCamera(75, 600/400, 0.1, 1000);
+        scene.background = new THREE.Color(0xffffff);
+
+        // add grid helper
+        const grid_helper = new THREE.GridHelper(20, 20);
+        scene.add(grid_helper);
+
+        // add axes helper
+        const axes_helper = new THREE.AxesHelper(5);
+        scene.add(axes_helper);
+
+        // set renderer
         renderer = new THREE.WebGLRenderer();
-        renderer.setSize(600, 400);
-        document.getElementById('container').appendChild(renderer.domElement);
-        
-        camera.position.z = 5;
-        
-        // 클릭으로 포인트 추가
-        renderer.domElement.addEventListener('click', onMouseClick);
-        
-        function onMouseClick(event) {
-            const rect = renderer.domElement.getBoundingClientRect();
-            const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-            const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-            
-            const geometry = new THREE.SphereGeometry(0.05);
-            const material = new THREE.MeshBasicMaterial({color: 0xff0000});
-            const sphere = new THREE.Mesh(geometry, material);
-            sphere.position.set(x * 2, y * 2, 0);
-            
-            scene.add(sphere);
-            points.push([x * 2, y * 2, 0]);
-            render();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.getElementById("container").appendChild(renderer.domElement);
+
+        // create camera
+        camera = new THREE.PerspectiveCamera(5, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.x = 3.5;
+        camera.position.y = 1.5;
+        camera.position.z = 3.5;
+
+        orbit_controls = new OrbitControls(camera, renderer.domElement);
+
+        // resize handler
+        window.addEventListener("resize", on_window_resize);
+
+        function on_window_resize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
         }
-        
+
+        function clear_scene() {
+            const children_to_remove = [];
+            for (let child of scene.children) {
+                if (child !== grid_helper && child !== axes_helper) {
+                    children_to_remove.push(child);
+                }
+            }
+            for (let child of children_to_remove) {
+                scene.remove(child);
+            }
+            points = [];
+        }
+
+        function add_point(x, y, z) {
+            const geometry = new THREE.SphereGeometry(0.015);
+            const material = new THREE.MeshBasicMaterial({color: 0x0000ff});
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(x, y, z);
+
+            scene.add(sphere);
+            points.push([x, y, z]);
+        }
+
+        function add_line_segments_with_faces(latent_shape, faces) {
+            const geometry = new THREE.BufferGeometry();
+            const positions = [];
+            for (let face of faces) {
+                for (let i = 0; i < face.length; i++) {
+                    const curr_index = face[i];
+                    const next_index = face[(i + 1) % face.length];
+
+                    const curr_vertex = latent_shape[curr_index];
+                    const next_vertex = latent_shape[next_index];
+
+                    positions.push(curr_vertex[0], curr_vertex[2], curr_vertex[1]);
+                    positions.push(next_vertex[0], next_vertex[2], next_vertex[1]);
+                }
+            }
+
+            geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+
+            const material = new THREE.LineBasicMaterial({
+                color: 0x000000,
+                linewidth: 1,
+                transparent: true,
+                opacity: 0.1
+            });
+
+            const wireframe = new THREE.LineSegments(geometry, material);
+            scene.add(wireframe);
+        }
+
         function render() {
+            orbit_controls.update();
             renderer.render(scene, camera);
         }
-        
-        function reconstruct() {
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
+
+        async function load_random_shape() {
+            const load_button = document.getElementById("load_button");
+            const reconstruct_button = document.getElementById("reconstruct_button");
+            const container = document.getElementById("container");
+
+            load_button.disabled = true;
+            reconstruct_button.disabled = true;
+            container.classList.add("loading");
+
+            try {
+                const response = await fetch("/api/latent_shapes");
+                const latent_shape_data = await response.json();
+
+                const latent_shape = latent_shape_data.latent_shape;
+                const faces = latent_shape_data.faces;
+
+                // clear existing objects
+                clear_scene();
+
+                // render latent shape vertices
+                for (let vertex of latent_shape) {
+                    add_point(vertex[0], vertex[2], vertex[1]);
+                }
+
+                // render latent shape line segments
+                add_line_segments_with_faces(latent_shape, faces);
+
+                render();
+
+            } catch (error) {
+                console.error("Error loading random shape:", error);
+                document.getElementById("result").innerHTML = error.message;
+            } finally {
+                load_button.disabled = false;
+                reconstruct_button.disabled = false;
+                container.classList.remove("loading");
+            }
+        }
+
+        async function reconstruct() {
             if (points.length === 0) {
-                alert('포인트를 먼저 추가해주세요');
+                alert("먼저 랜덤 shape를 로드해주세요");
                 return;
             }
-            
-            // 포인트를 latent_shapes 형태로 변환 (간단한 예시)
-            const latent_shapes = points.flat();
-            
-            fetch('/reconstruct', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({latent_shapes: latent_shapes})
-            })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('result').innerHTML = data.message;
-            })
-            .catch(error => {
-                document.getElementById('result').innerHTML = 'Error: ' + error;
-            });
+
+            const reconstruct_button = document.getElementById("reconstruct_button");
+            const container = document.getElementById("container");
+
+            reconstruct_button.disabled = true;
+            container.classList.add("loading");
+            // document.getElementById("result").innerHTML = "Processing...";
+
+            try {
+                // 포인트를 latent_shapes 형태로 변환 (Z-up 좌표계)
+                const latent_shapes = points.flat();
+                console.log("Sending points (Z-up xyz):", points);
+                console.log("Flattened latent_shapes:", latent_shapes);
+
+                const response = await fetch("/api/reconstruct", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({latent_shapes: latent_shapes})
+                });
+
+                const result_data = await response.json();
+                document.getElementById("result").innerHTML = result_data.message;
+
+            } catch (error) {
+                document.getElementById("result").innerHTML = "Error: " + error.message;
+            } finally {
+                reconstruct_button.disabled = false;
+                container.classList.remove("loading");
+            }
         }
-        
-        render();
+
+        // 전역 함수로 노출
+        window.load_random_shape = load_random_shape;
+        window.reconstruct = reconstruct;
+
+        animate();
     </script>
 </body>
 </html>
