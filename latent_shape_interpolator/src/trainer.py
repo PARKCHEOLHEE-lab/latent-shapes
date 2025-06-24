@@ -71,6 +71,8 @@ class Trainer:
             self.sdf_decoder_optimizer.load_state_dict(self.states["state_dict_optimizer"])
             self.scheduler.load_state_dict(self.states["state_dict_scheduler"])
 
+            print(f"Loaded states successfully from `{pretrained_dir}`")
+
         # create new log_dir
         elif pretrained_dir is None:
             pretrained_dir = os.path.join(
@@ -188,7 +190,6 @@ class Trainer:
                     check_watertight=False,
                     add_noise=False,
                     rescale=True,
-                    epoch=epoch,
                 )
 
                 if reconstruction_results.count(False) == self.configuration.RECONSTRUCTION_COUNT:
@@ -247,7 +248,7 @@ if __name__ == "__main__":
         sdf_decoder_optimizer=sdf_decoder_optimizer,
         sdf_dataset=sdf_dataset,
         configuration=configuration,
-        # pretrained_dir="latent_shape_interpolator/runs/05-04-2025__17-32-53",
+        pretrained_dir="latent_shape_interpolator/runs/06-23-2025__21-24-31",
     )
 
     sdf_decoder_trainer.train()
