@@ -3,6 +3,7 @@ import sys
 import torch
 import skimage
 import trimesh
+import numpy as np
 import torch.nn as nn
 import point_cloud_utils as pcu
 
@@ -136,7 +137,7 @@ class SDFDecoder(nn.Module):
 
             if not (sdfs.min() <= self.configuration.MARCHING_CUBES_LEVEL <= sdfs.max()):
                 print(f"sdf is not in the range of {self.configuration.MARCHING_CUBES_LEVEL}")
-                results.append(False)
+                results.append(None)
                 continue
 
             sdf_grid = sdfs.reshape(
@@ -162,27 +163,49 @@ class SDFDecoder(nn.Module):
             mesh.vertices -= mesh.vertices.mean(axis=0)
 
             if rescale:
+                transform, (w, h, d) = trimesh.bounds.oriented_bounds(mesh)
+                bounding_box_3d = np.array(
+                    [
+                        [-w / 2, -h / 2, -d / 2],
+                        [-w / 2, -h / 2, +d / 2],
+                        [-w / 2, +h / 2, -d / 2],
+                        [-w / 2, +h / 2, +d / 2],
+                        [+w / 2, -h / 2, -d / 2],
+                        [+w / 2, -h / 2, +d / 2],
+                        [+w / 2, +h / 2, -d / 2],
+                        [+w / 2, +h / 2, +d / 2],
+                    ]
+                )
+                oriented_bounding_box_3d = bounding_box_3d @ transform[:3, :3]
+
+                _, latent_shape_bounds = trimesh.bounds.oriented_bounds(
+                    trimesh.Trimesh(vertices=latent_shape.cpu().numpy(), faces=[])
+                )
+
                 mesh_bounds = mesh.bounds
                 latent_shape_bounds = (
                     torch.stack([latent_shape.min(dim=0)[0], latent_shape.max(dim=0)[0]], dim=0).cpu().numpy()
                 )
-
+                print(mesh_bounds)
+                print(latent_shape_bounds)
                 # calculate the dim sizes of the mesh and the latent shape
                 mesh_size = mesh_bounds[1] - mesh_bounds[0]
                 latent_size = latent_shape_bounds[1] - latent_shape_bounds[0]
 
                 # compute scale factors
-                scale_factors = torch.ones(3)
+                scale_factors = torch.eye(3, device=self.configuration.DEVICE)
                 for i in range(3):
-                    scale_factors[i] = latent_size[i] / (mesh_size[i] + 1e-9)
+                    scale_factors[i, i] = latent_size[i] / (mesh_size[i] + 1e-9)
+
+                print(scale_factors)
 
                 # match the reconstructed mesh size to the latent shape size
-                mesh.vertices = mesh.vertices * scale_factors.numpy()
+                mesh.vertices = mesh.vertices @ scale_factors.cpu().numpy()
 
                 # centralize the mesh at the latent shape center
-                latent_center = latent_shape_bounds.sum(axis=0) / 2
+                latent_center = latent_shape.mean(axis=0).cpu().numpy()
                 mesh_center = mesh.vertices.mean(axis=0)
-                mesh.vertices = mesh.vertices - mesh_center + latent_center
+                mesh.vertices = mesh.vertices + latent_center - mesh_center
 
             mesh = trimesh.util.concatenate([mesh, trimesh.Trimesh(vertices=latent_shape.cpu().numpy(), faces=[])])
 
@@ -201,7 +224,7 @@ class SDFDecoder(nn.Module):
 
             mesh.export(file_path)
 
-            results.append(True)
+            results.append(mesh)
 
         self.train()
 

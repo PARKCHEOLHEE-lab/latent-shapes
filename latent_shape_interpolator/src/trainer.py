@@ -192,7 +192,7 @@ class Trainer:
                     rescale=True,
                 )
 
-                if reconstruction_results.count(False) == self.configuration.RECONSTRUCTION_COUNT:
+                if reconstruction_results.count(None) == self.configuration.RECONSTRUCTION_COUNT:
                     print(f"All reconstructions failed at epoch {epoch}")
 
             self.summary_writer.add_scalar("loss_mean", loss_mean, epoch)
