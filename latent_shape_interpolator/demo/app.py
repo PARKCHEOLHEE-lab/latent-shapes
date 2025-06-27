@@ -53,27 +53,31 @@ def get_random_latent_shape():
 def reconstruct():
     try:
         data = request.get_json()
+        latent_shapes = torch.tensor(data["latent_shapes"]).to(configuration.DEVICE).unsqueeze(0)
 
-        latent_shapes = torch.tensor(data["latent_shapes"]).to(configuration.DEVICE)
-        print(latent_shapes)
+        reconstruction_results = sdf_decoder.reconstruct(
+            latent_shapes=latent_shapes,
+            save_path=os.path.join(os.path.dirname(__file__)),
+            normalize=True,
+            check_watertight=False,
+            map_z_to_y=False,
+            add_noise=False,
+            rescale=True,
+        )
 
-        # results = sdf_decoder.reconstruct(
-        #     latent_shapes=latent_shapes,
-        #     save_path=os.path.join(os.path.dirname(__file__)),
-        #     normalize=True,
-        #     check_watertight=False,
-        #     map_z_to_y=True,
-        #     add_noise=False,
-        #     rescale=False,
-        # )
+        if reconstruction_results[0] is None:
+            return jsonify({"message": "Reconstruction failed"}), 400
 
-        # if not results[0]:
-        #     return jsonify({"message": "Reconstruction failed"}), 400
+        # Extract mesh data from the first result
+        mesh = reconstruction_results[0]
 
-        return jsonify({"message": "Reconstruction successful"}), 200
+        vertices = mesh.vertices.tolist()
+        faces = mesh.faces.tolist()
 
-    except:
-        return jsonify({"message": "Reconstruction failed"}), 400
+        return jsonify({"message": "Reconstruction successful", "vertices": vertices, "faces": faces})
+
+    except Exception as e:
+        return jsonify({"message": f"Reconstruction failed: {str(e)}"}), 400
 
 
 if __name__ == "__main__":
