@@ -5,13 +5,13 @@ import numpy as np
 
 
 class DataConfiguration:
-    GRID_SIZE = 64
+    GRID_SIZE = 40
     MIN_BOUND = -1.0
     MAX_BOUND = 1.0
 
-    N_SURFACE_SAMPLING_RATIO = 0.3
-    N_SURFACE_NOISY_SAMPLING_RATIO = 0.5
-    N_VOLUME_SAMPLING_RATIO = 0.2
+    N_SURFACE_SAMPLING_RATIO = 0.5
+    N_SURFACE_NOISY_SAMPLING_RATIO = 0.4
+    N_VOLUME_SAMPLING_RATIO = 0.1
 
     N_TOTAL_SAMPLING = GRID_SIZE**3
     N_SURFACE_SAMPLING = int(N_TOTAL_SAMPLING * N_SURFACE_SAMPLING_RATIO)
@@ -26,13 +26,11 @@ class DataConfiguration:
     DATA_NAME = "models"
     DATA_NAME_OBJ = "model_normalized.obj"
 
-    SCALE_MATRIX = np.array(
-        [
-            [0.95, 0.00, 0.00],
-            [0.00, 0.95, 0.00],
-            [0.00, 0.00, 1.00],
-        ]
-    )
+    SCALE_MATRIX = [
+        [0.95, 0.00, 0.00],
+        [0.00, 0.95, 0.00],
+        [0.00, 0.00, 1.00],
+    ]
 
     WATERTIGHT_RESOLUTION = 20000
 
@@ -73,14 +71,25 @@ class ModelConfiguration:
     MARCHING_CUBES_LEVEL = 0.00
 
     OPTIMIZER = "AdamW"
+    
+    CUDA = "cuda"
+    CPU = "cpu"
 
-    DEVICE = "cuda"
+    DEVICE = CUDA
     if not torch.cuda.is_available():
-        DEVICE = "cpu"
+        DEVICE = CPU
 
     print("CUDA status")
     print(f"  torch.cuda.is_available(): {torch.cuda.is_available()}")
     print(f"  DEVICE: {DEVICE} \n")
+    
+    USE_MULTI_GPUS = False
+
+    if DEVICE == CUDA:
+        for i in range(torch.cuda.device_count()):
+            print(f"Current device: {torch.cuda.get_device_name(i)}")
+            
+        USE_MULTI_GPUS = torch.cuda.device_count() >= 2
 
 
 class Configuration(DataConfiguration, ModelConfiguration):
@@ -103,12 +112,12 @@ class Configuration(DataConfiguration, ModelConfiguration):
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = True
-        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = False
+        torch.backends.cudnn.benchmark = True
         np.random.seed(seed)
         random.seed(seed)
 
-        print("Seeds status:")
+        print("\nSeeds status:")
         print(f"  Seeds set for torch        : {torch.initial_seed()}")
         print(f"  Seeds set for torch on GPU : {torch.cuda.initial_seed()}")
         print(f"  Seeds set for numpy        : {seed}")
