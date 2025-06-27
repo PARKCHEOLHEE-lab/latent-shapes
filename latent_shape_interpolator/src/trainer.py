@@ -4,9 +4,6 @@ import pytz
 import torch
 import datetime
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
-print(f"CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
-
 from tqdm import tqdm
 from typing import Tuple, Optional
 from torch.utils.tensorboard import SummaryWriter
@@ -33,6 +30,8 @@ class Trainer:
         self.sdf_decoder_optimizer = sdf_decoder_optimizer
         self.sdf_dataset = sdf_dataset
         self.configuration = configuration
+
+        self.sdf_decoder_module = self.sdf_decoder.module if self.configuration.USE_MULTI_GPUS else self.sdf_decoder
 
         assert None not in (
             self.sdf_dataset.train_dataset,
@@ -100,7 +99,7 @@ class Trainer:
         ):
             xyz_batch, sdf_batch, class_number_batch, _, _ = data
 
-            latent_shapes_batch = self.sdf_decoder.latent_shapes_embedding(class_number_batch)
+            latent_shapes_batch = self.sdf_decoder_module.latent_shapes_embedding(class_number_batch)
             latent_shapes_batch = latent_shapes_batch.reshape(latent_shapes_batch.shape[0], -1)
 
             # add noise
@@ -136,7 +135,7 @@ class Trainer:
         ):
             xyz_batch, sdf_batch, class_number_batch, _, _ = data
 
-            latent_shapes_batch = self.sdf_decoder.latent_shapes_embedding(class_number_batch)
+            latent_shapes_batch = self.sdf_decoder_module.latent_shapes_embedding(class_number_batch)
             latent_shapes_batch = latent_shapes_batch.reshape(latent_shapes_batch.shape[0], -1)
 
             # add noise
@@ -179,7 +178,7 @@ class Trainer:
             )
 
             if epoch == 1 or epoch % self.configuration.RECONSTRUCTION_INTERVAL == 0:
-                latent_shapes_batch = self.sdf_decoder.latent_shapes_embedding(
+                latent_shapes_batch = self.sdf_decoder_module.latent_shapes_embedding(
                     torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
                 )
 
@@ -220,35 +219,3 @@ class Trainer:
                 self.states = torch.load(os.path.join(self.log_dir, self.configuration.SAVE_NAME))
                 self.states.update({"epoch": epoch})
                 torch.save(self.states, os.path.join(self.log_dir, self.configuration.SAVE_NAME))
-
-
-if __name__ == "__main__":
-    configuration = Configuration()
-    configuration.set_seed()
-
-    sdf_dataset = SDFDataset.create_dataset(
-        data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=10
-    )
-
-    sdf_decoder = SDFDecoder(
-        latent_shapes=sdf_dataset.latent_shapes,
-        configuration=configuration,
-    )
-
-    sdf_decoder_optimizer = getattr(torch.optim, configuration.OPTIMIZER)(
-        [
-            {"params": sdf_decoder.latent_shapes_embedding.parameters(), "lr": configuration.LR_LATENT_POINTS},
-            {"params": sdf_decoder.main_1.parameters(), "lr": configuration.LR_DECODER},
-            {"params": sdf_decoder.main_2.parameters(), "lr": configuration.LR_DECODER},
-        ],
-    )
-
-    sdf_decoder_trainer = Trainer(
-        sdf_decoder=sdf_decoder,
-        sdf_decoder_optimizer=sdf_decoder_optimizer,
-        sdf_dataset=sdf_dataset,
-        configuration=configuration,
-        pretrained_dir="latent_shape_interpolator/runs/06-23-2025__21-24-31",
-    )
-
-    sdf_decoder_trainer.train()
