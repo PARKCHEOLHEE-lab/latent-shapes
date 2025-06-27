@@ -92,7 +92,7 @@
         // update `points` when object is moved
         transform_controls.addEventListener("objectChange", function (event) {
             if (selected_object && selected_point_index !== -1) {
-                
+
                 // update `points` with new position using stored index
                 points[selected_point_index] = [
                     selected_object.position.x,
@@ -106,7 +106,7 @@
                         scene.remove(child);
                     }
                 }
-                
+
                 // render latent shape line segments
                 add_line_segments_with_faces(points, faces, false);
             }
@@ -129,7 +129,7 @@
 
             for (let intersect of intersects) {
                 if (
-                    intersect.object.name === "latent_shape" 
+                    intersect.object.name === "latent_shape"
                     && intersect.object.geometry.type === "SphereGeometry"
                 ) {
                     if (intersect.object.material.color.getHex() === 0xff0000) {
@@ -143,14 +143,14 @@
                         }
                     } else {
                         intersect.object.material.color.set(0xff0000);
-                        
+
                         // find the index of this point in the `points`
-                        const _selected_point_index = points.findIndex(point => 
+                        const _selected_point_index = points.findIndex(point =>
                             Math.abs(point[0] - intersect.object.position.x) < 0.001 &&
                             Math.abs(point[1] - intersect.object.position.y) < 0.001 &&
                             Math.abs(point[2] - intersect.object.position.z) < 0.001
                         );
-                        
+
                         // select the object and attach gizmo
                         selected_object = intersect.object;
                         selected_point_index = _selected_point_index;
@@ -169,14 +169,14 @@
 
         function clear_scene(mode="") {
             const children_to_remove = [];
-            
+
             // clear gizmo if object is selected
             if (selected_object) {
                 transform_controls.detach();
                 selected_object = null;
                 selected_point_index = -1;
             }
-            
+
             // remove reconstructed mesh
             if (mode === "reconstruct") {
                 for (let child of scene.children) {
@@ -184,7 +184,7 @@
                         children_to_remove.push(child);
                     }
                 }
-            } 
+            }
             // remove latent shape
             else {
                 for (let child of scene.children) {
@@ -250,7 +250,7 @@
 
         function add_reconstructed_mesh(vertices, faces) {
             const geometry = new THREE.BufferGeometry();
-            
+
             const vertexArray = new Float32Array(vertices.length * 3);
             for (let i = 0; i < vertices.length; i++) {
                 const vertex = vertices[i];
@@ -258,7 +258,7 @@
                 vertexArray[i * 3 + 1] = vertex[2];
                 vertexArray[i * 3 + 2] = vertex[1];
             }
-            
+
             geometry.setAttribute("position", new THREE.BufferAttribute(vertexArray, 3));
 
             const indices = [];
@@ -270,17 +270,17 @@
                     indices.push(face[0], face[2], face[3]);
                 }
             }
-            
+
             geometry.setIndex(indices);
             geometry.computeVertexNormals();
-            
+
             const material = new THREE.MeshPhongMaterial({
                 color: 0xffffff,
                 transparent: true,
                 opacity: 0.3,
                 side: THREE.DoubleSide
             });
-            
+
             const mesh = new THREE.Mesh(geometry, material);
             mesh.name = "reconstructed_mesh";
             scene.add(mesh);
@@ -355,7 +355,7 @@
                 });
 
                 const result_data = await response.json();
-                
+
                 if (response.ok && result_data.vertices && result_data.faces) {
                     clear_scene("reconstruct");
                     add_reconstructed_mesh(result_data.vertices, result_data.faces);
