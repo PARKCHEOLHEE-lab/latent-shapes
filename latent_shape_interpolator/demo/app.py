@@ -6,7 +6,7 @@ if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys
 
 import torch
 
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, redirect, url_for
 from flask_cors import CORS
 
 from latent_shape_interpolator.src.config import Configuration
@@ -16,6 +16,7 @@ from latent_shape_interpolator.src.model import SDFDecoder
 
 app = Flask(__name__)
 CORS(app)
+
 
 configuration = Configuration()
 
@@ -37,7 +38,12 @@ sdf_decoder.load_state_dict(
 
 @app.route("/")
 def index():
-    return render_template("index.html")
+    return redirect(url_for("interface"))
+
+
+@app.route("/interface.html")
+def interface():
+    return render_template("interface.html")
 
 
 @app.route("/api/latent_shapes", methods=["GET"])
