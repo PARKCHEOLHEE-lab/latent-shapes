@@ -5,7 +5,7 @@ import numpy as np
 
 
 class DataConfiguration:
-    GRID_SIZE = 36
+    GRID_SIZE = 64
     MIN_BOUND = -1.0
     MAX_BOUND = 1.0
 
@@ -37,7 +37,7 @@ class DataConfiguration:
     WATERTIGHT_RESOLUTION = 20000
 
     NUM_LATENT_POINTS = 26
-    GRID_SIZE_RECONSTRUCTION = 192
+    GRID_SIZE_RECONSTRUCTION = 256
 
 
 class ModelConfiguration:
