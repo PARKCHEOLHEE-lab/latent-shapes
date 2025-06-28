@@ -5,7 +5,7 @@ import numpy as np
 
 
 class DataConfiguration:
-    GRID_SIZE = 40
+    GRID_SIZE = 36
     MIN_BOUND = -1.0
     MAX_BOUND = 1.0
 
