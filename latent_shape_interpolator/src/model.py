@@ -48,26 +48,26 @@ class SDFDecoder(nn.Module):
         self.main_1_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
         self.main_1 = nn.Sequential(
             nn.Linear(self.main_1_in_features, self.configuration.HIDDEN_DIM),
-            nn.ReLU(True),
+            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
             nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            nn.ReLU(True),
+            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
             nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            nn.ReLU(True),
+            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
             nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            nn.ReLU(True),
+            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
             nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
         )
 
         self.main_2_in_features = self.main_1_in_features + self.configuration.HIDDEN_DIM
         self.main_2 = nn.Sequential(
             nn.Linear(self.main_2_in_features, self.configuration.HIDDEN_DIM),
-            nn.ReLU(True),
+            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
             nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            nn.ReLU(True),
+            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
             nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            nn.ReLU(True),
+            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
             nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            nn.ReLU(True),
+            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
             nn.Linear(self.configuration.HIDDEN_DIM, 1),
             nn.Tanh(),
         )

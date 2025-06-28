@@ -71,6 +71,8 @@ class ModelConfiguration:
     MARCHING_CUBES_LEVEL = 0.00
 
     OPTIMIZER = "AdamW"
+    ACTIVATION = "GELU"
+    ACTIVATION_KWARGS = {}
     
     CUDA = "cuda"
     CPU = "cpu"
