@@ -50,9 +50,9 @@ class ModelConfiguration:
     LR_LATENT_POINTS = 1e-5
     LR_DECODER = 1e-3
 
-    LATENT_POINTS_NOISE = 0.1
+    LATENT_POINTS_NOISE = 0.05
 
-    LOSS_TRAIN_WEIGHT = 0.5
+    LOSS_TRAIN_WEIGHT = 0.2
     LOSS_VALIDATION_WEIGHT = 1.0
 
     CLAMP = 0.1
