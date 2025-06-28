@@ -11,6 +11,25 @@
             "program": "${file}",
             "console": "integratedTerminal",
             "justMyCode": true
+        },
+        {
+            "name": "Python Debugger: train.py",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/latent_shape_interpolator/src/train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "env": {
+                "CUDA_VISIBLE_DEVICES": "${input:CUDA_VISIBLE_DEVICES}"
+            }
+        }
+    ],
+    "inputs": [
+        {
+            "id": "CUDA_VISIBLE_DEVICES",
+            "type": "promptString",
+            "description": "Select CUDA device",
+            "default": "0"
         }
     ]
 }
