@@ -2,6 +2,8 @@ import os
 import sys
 import pytz
 import torch
+import shutil
+import inspect
 import datetime
 
 from tqdm import tqdm
@@ -165,6 +167,14 @@ class Trainer:
         return loss_mean
 
     def train(self) -> None:
+        
+        # copy used configuration
+        config_path = inspect.getfile(Configuration)
+        shutil.copy(
+            config_path, 
+            os.path.join(self.log_dir, os.path.basename(config_path))
+        )
+        
         epoch_start = self.states["epoch"]
         epoch_end = self.configuration.EPOCHS + 1
 
