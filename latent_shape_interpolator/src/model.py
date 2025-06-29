@@ -186,8 +186,7 @@ class SDFDecoder(nn.Module):
                 latent_shape_bounds = (
                     torch.stack([latent_shape.min(dim=0)[0], latent_shape.max(dim=0)[0]], dim=0).cpu().numpy()
                 )
-                print(mesh_bounds)
-                print(latent_shape_bounds)
+
                 # calculate the dim sizes of the mesh and the latent shape
                 mesh_size = mesh_bounds[1] - mesh_bounds[0]
                 latent_size = latent_shape_bounds[1] - latent_shape_bounds[0]
@@ -196,8 +195,6 @@ class SDFDecoder(nn.Module):
                 scale_factors = torch.eye(3, device=self.configuration.DEVICE)
                 for i in range(3):
                     scale_factors[i, i] = latent_size[i] / (mesh_size[i] + 1e-9)
-
-                print(scale_factors)
 
                 # match the reconstructed mesh size to the latent shape size
                 mesh.vertices = mesh.vertices @ scale_factors.cpu().numpy()
