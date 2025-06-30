@@ -16,7 +16,7 @@ from latent_shape_interpolator.src.config import Configuration
 
 
 class LatentShapes(nn.Module):
-    def __init__(self, latent_shapes: int, noise_min: Optional[float] = None, noise_max: Optional[float] = None):
+    def __init__(self, latent_shapes: torch.Tensor, noise_min: Optional[float] = None, noise_max: Optional[float] = None):
         super().__init__()
 
         self.noise = torch.zeros_like(latent_shapes)
@@ -35,6 +35,26 @@ class LatentShapes(nn.Module):
         return self.embedding[class_number]
 
 
+class ResidualLinear(nn.Module):
+    def __init__(self, in_dim: int, out_dim: int, activation: nn.Module):
+        super().__init__()
+
+        self.in_dim = in_dim
+        self.out_dim = out_dim
+        self.activation = activation
+        
+        self.linear_1 = nn.Linear(self.in_dim, self.in_dim)
+        self.linear_2 = nn.Linear(self.in_dim, self.out_dim)
+        
+    def forward(self, _x: torch.Tensor) -> torch.Tensor:
+        
+        x = self.linear_1(_x)
+        x = self.activation(x)
+        x = self.linear_2(x)
+        x = self.activation(x)
+        
+        return x + _x
+
 class SDFDecoder(nn.Module):
     def __init__(self, latent_shapes: torch.Tensor, configuration: Configuration):
         super().__init__()
@@ -46,40 +66,61 @@ class SDFDecoder(nn.Module):
         self.latent_shapes_embedding = LatentShapes(latent_shapes=self.latent_shapes)
 
         self.main_1_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
+
         self.main_1 = nn.Sequential(
-            nn.Linear(self.main_1_in_features, self.configuration.HIDDEN_DIM),
-            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
+            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
+            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
+            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
+            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
+            nn.Linear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
+            # nn.Linear(self.main_1_in_features, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
         )
 
-        self.main_2_in_features = self.main_1_in_features + self.configuration.HIDDEN_DIM
+        # self.main_2_in_features = self.main_1_in_features + self.configuration.HIDDEN_DIM
+        self.main_2_in_features = self.main_1_in_features * 2
         self.main_2 = nn.Sequential(
-            nn.Linear(self.main_2_in_features, self.configuration.HIDDEN_DIM),
-            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            nn.Linear(self.configuration.HIDDEN_DIM, 1),
+            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
+            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
+            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
+            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
+            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
+            # nn.Linear(self.main_2_in_features, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+            nn.Linear(self.main_2_in_features, 1),
             nn.Tanh(),
         )
 
         self.to(self.configuration.DEVICE)
 
     def forward(self, cxyz: torch.Tensor):
-        x1 = self.main_1(cxyz)
-        x2 = torch.cat((x1, cxyz), dim=1)
-        x3 = self.main_2(x2)
+        x = self.main_1(cxyz)
+        x = torch.cat((x, cxyz), dim=1)
+        x = self.main_2(x)
 
-        return x3
+        return x
 
     @torch.no_grad()
     def reconstruct(
