@@ -156,7 +156,10 @@ class Trainer:
             loss /= self.configuration.ACCUMULATION_STEPS
 
             loss.backward()
-            if (batch_index + 1) % self.configuration.ACCUMULATION_STEPS == 0:
+            if (
+                (batch_index + 1) % self.configuration.ACCUMULATION_STEPS == 0
+                or (batch_index + 1) == len(self.sdf_dataset.train_dataloader)
+            ):
                 self.sdf_decoder_optimizer.step()
                 self.sdf_decoder_optimizer.zero_grad()
 
@@ -187,23 +190,6 @@ class Trainer:
                 + loss_mean_val * self.configuration.LOSS_VALIDATION_WEIGHT
             )
 
-            if epoch == 1 or epoch % self.configuration.RECONSTRUCTION_INTERVAL == 0:
-                latent_shapes_batch = self.sdf_decoder_module.latent_shapes_embedding(
-                    torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
-                )
-
-                reconstruction_results = self.sdf_decoder.reconstruct(
-                    latent_shapes_batch,
-                    save_path=self.log_dir,
-                    normalize=True,
-                    check_watertight=False,
-                    add_noise=False,
-                    rescale=True,
-                )
-
-                if reconstruction_results.count(None) == self.configuration.RECONSTRUCTION_COUNT:
-                    print(f"All reconstructions failed at epoch {epoch}")
-
             self.summary_writer.add_scalar("loss_mean", loss_mean, epoch)
             self.summary_writer.add_scalar("loss_mean_val", loss_mean_val, epoch)
             self.summary_writer.add_scalar("loss_mean_weighted_sum", loss_mean_weighted_sum, epoch)
@@ -211,6 +197,32 @@ class Trainer:
             self.scheduler.step(loss_mean_weighted_sum)
 
             if loss_mean_weighted_sum < self.states["loss_mean_weighted_sum"]:
+                
+                print(
+                    f"""
+                    states updated:
+                        loss_mean_weighted_sum: {loss_mean_weighted_sum}
+                        self.states["loss_mean_weighted_sum"]: {self.states["loss_mean_weighted_sum"]}
+                    """
+                )
+
+                if epoch == 1 or epoch % self.configuration.RECONSTRUCTION_INTERVAL == 0:
+                    latent_shapes_batch = self.sdf_decoder_module.latent_shapes_embedding(
+                        torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
+                    )
+
+                    reconstruction_results = self.sdf_decoder.reconstruct(
+                        latent_shapes_batch,
+                        save_path=self.log_dir,
+                        normalize=True,
+                        check_watertight=False,
+                        add_noise=False,
+                        rescale=True,
+                    )
+
+                    if reconstruction_results.count(None) == latent_shapes_batch.shape[0]:
+                        print(f"All reconstructions failed at epoch {epoch}")
+                        
                 self.states.update(
                     {
                         "epoch": epoch,
