@@ -38,11 +38,18 @@ if __name__ == "__main__":
         sdf_decoder_module = sdf_decoder.module
     
     _sdf_decoder_optimizer = getattr(torch.optim, configuration.OPTIMIZER)
-    sdf_decoder_optimizer = _sdf_decoder_optimizer([
-        {"params": sdf_decoder_module.latent_shapes_embedding.parameters(), "lr": configuration.LR_LATENT_POINTS},
-        {"params": sdf_decoder_module.main_1.parameters(), "lr": configuration.LR_DECODER},
-        {"params": sdf_decoder_module.main_2.parameters(), "lr": configuration.LR_DECODER},
-    ])
+    sdf_decoder_optimizer = _sdf_decoder_optimizer(
+        [
+            {"params": sdf_decoder_module.latent_shapes_embedding.parameters(), "lr": configuration.LR_LATENT_SHAPES},
+            {"params": sdf_decoder_module.xyz_projection.parameters(), "lr": configuration.LR_DECODER},
+            {"params": sdf_decoder_module.latent_projection.parameters(), "lr": configuration.LR_DECODER},
+            {"params": sdf_decoder_module.attention.parameters(), "lr": configuration.LR_DECODER},
+            {"params": sdf_decoder_module.ff.parameters(), "lr": configuration.LR_DECODER},
+            {"params": sdf_decoder_module.layer_norm_1.parameters(), "lr": configuration.LR_DECODER},
+            {"params": sdf_decoder_module.layer_norm_2.parameters(), "lr": configuration.LR_DECODER},
+            *[{"params": block.parameters(), "lr": configuration.LR_DECODER} for block in sdf_decoder_module.blocks]
+        ]
+    )
 
     sdf_decoder_trainer = Trainer(
         sdf_decoder=sdf_decoder,

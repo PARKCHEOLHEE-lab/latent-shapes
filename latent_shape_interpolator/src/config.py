@@ -9,9 +9,9 @@ class DataConfiguration:
     MIN_BOUND = -1.0
     MAX_BOUND = 1.0
 
-    N_SURFACE_SAMPLING_RATIO = 0.5
-    N_SURFACE_NOISY_SAMPLING_RATIO = 0.4
-    N_VOLUME_SAMPLING_RATIO = 0.1
+    N_SURFACE_SAMPLING_RATIO = 0.3
+    N_SURFACE_NOISY_SAMPLING_RATIO = 0.5
+    N_VOLUME_SAMPLING_RATIO = 0.2
 
     N_TOTAL_SAMPLING = GRID_SIZE**3
     N_SURFACE_SAMPLING = int(N_TOTAL_SAMPLING * N_SURFACE_SAMPLING_RATIO)
@@ -35,19 +35,20 @@ class DataConfiguration:
     WATERTIGHT_RESOLUTION = 20000
 
     NUM_LATENT_POINTS = 26
-    GRID_SIZE_RECONSTRUCTION = 256
 
 
 class ModelConfiguration:
-    EPOCHS = 100
+    EPOCHS = 500
     SEED = 777
 
     BATCH_SIZE = 512
     ACCUMULATION_STEPS = 1
 
+    ATTENTION_DIM = 256
+    NUM_HEADS = 8
     HIDDEN_DIM = 512
 
-    LR_LATENT_POINTS = 1e-5
+    LR_LATENT_SHAPES = 1e-5
     LR_DECODER = 1e-3
 
     LATENT_POINTS_NOISE = 0.05
@@ -70,10 +71,14 @@ class ModelConfiguration:
     RECONSTRUCTION_GRID_SIZE = 192
 
     MARCHING_CUBES_LEVEL = 0.00
+    NUM_LAYERS = 5
+    NUM_BLOCKS = 10
+    
+    K = 5
 
     OPTIMIZER = "AdamW"
-    ACTIVATION = "GELU"
-    ACTIVATION_KWARGS = {}
+    ACTIVATION = "ReLU"
+    ACTIVATION_KWARGS = {"inplace": True}
     
     CUDA = "cuda"
     CPU = "cpu"
@@ -115,8 +120,8 @@ class Configuration(DataConfiguration, ModelConfiguration):
         torch.manual_seed(seed)
         torch.cuda.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
-        torch.backends.cudnn.deterministic = False
-        torch.backends.cudnn.benchmark = True
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
         np.random.seed(seed)
         random.seed(seed)
 

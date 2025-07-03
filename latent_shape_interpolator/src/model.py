@@ -7,7 +7,7 @@ import numpy as np
 import torch.nn as nn
 import point_cloud_utils as pcu
 
-from typing import Optional
+from typing import Optional, List
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -35,26 +35,6 @@ class LatentShapes(nn.Module):
         return self.embedding[class_number]
 
 
-class ResidualLinear(nn.Module):
-    def __init__(self, in_dim: int, out_dim: int, activation: nn.Module):
-        super().__init__()
-
-        self.in_dim = in_dim
-        self.out_dim = out_dim
-        self.activation = activation
-        
-        self.linear_1 = nn.Linear(self.in_dim, self.in_dim)
-        self.linear_2 = nn.Linear(self.in_dim, self.out_dim)
-        
-    def forward(self, _x: torch.Tensor) -> torch.Tensor:
-        
-        x = self.linear_1(_x)
-        x = self.activation(x)
-        x = self.linear_2(x)
-        x = self.activation(x)
-        
-        return x + _x
-
 class SDFDecoder(nn.Module):
     def __init__(self, latent_shapes: torch.Tensor, configuration: Configuration):
         super().__init__()
@@ -64,63 +44,105 @@ class SDFDecoder(nn.Module):
 
         # define latent shapes embedding
         self.latent_shapes_embedding = LatentShapes(latent_shapes=self.latent_shapes)
-
-        self.main_1_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
-
-        self.main_1 = nn.Sequential(
-            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
-            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
-            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
-            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
-            ResidualLinear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
-            nn.Linear(self.main_1_in_features, self.main_1_in_features, nn.ReLU(True)),
-            # nn.Linear(self.main_1_in_features, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+        
+        self.xyz_projection = nn.Linear(3 + self.configuration.K * 3, self.configuration.ATTENTION_DIM)
+        self.latent_projection = nn.Linear(self.configuration.NUM_LATENT_POINTS * 3, self.configuration.ATTENTION_DIM)
+        
+        self.attention = nn.MultiheadAttention(
+            embed_dim=self.configuration.ATTENTION_DIM,
+            num_heads=self.configuration.NUM_HEADS,
+            dropout=0.1,
+            batch_first=True,
         )
-
-        # self.main_2_in_features = self.main_1_in_features + self.configuration.HIDDEN_DIM
-        self.main_2_in_features = self.main_1_in_features * 2
-        self.main_2 = nn.Sequential(
-            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
-            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
-            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
-            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
-            ResidualLinear(self.main_2_in_features, self.main_2_in_features, nn.ReLU(True)),
-            # nn.Linear(self.main_2_in_features, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            # nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
-            # getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
-            nn.Linear(self.main_2_in_features, 1),
-            nn.Tanh(),
+        
+        self.ff = nn.Sequential(
+            nn.Linear(self.configuration.ATTENTION_DIM, self.configuration.ATTENTION_DIM * 4),
+            nn.ReLU(inplace=True),
+            nn.Linear(self.configuration.ATTENTION_DIM * 4, self.configuration.ATTENTION_DIM),
         )
+        
+        self.layer_norm_1 = nn.LayerNorm(self.configuration.ATTENTION_DIM)
+        self.layer_norm_2 = nn.LayerNorm(self.configuration.ATTENTION_DIM)
+        
+        self.first_block_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
+        
+        self.blocks: List[nn.Sequential]
+        self.blocks = []
+        for b in range(self.configuration.NUM_BLOCKS):
+
+            blocks: List[nn.Module]
+            blocks = []
+            
+            in_features = (
+                self.configuration.ATTENTION_DIM if b == 0
+                else self.configuration.ATTENTION_DIM + self.configuration.HIDDEN_DIM
+            )
+
+            blocks.extend(
+                [
+                    nn.Linear(in_features, self.configuration.HIDDEN_DIM),
+                    getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+                ]
+            )
+                
+            for _ in range(self.configuration.NUM_LAYERS):
+                blocks.extend(
+                    [
+                        nn.Linear(self.configuration.HIDDEN_DIM, self.configuration.HIDDEN_DIM),
+                        getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
+                    ]
+                )
+
+            if b + 1 == self.configuration.NUM_BLOCKS:
+                blocks.extend(
+                    [
+                        nn.Linear(self.configuration.HIDDEN_DIM, 1),
+                        nn.Tanh()
+                    ]
+                )
+            
+            self.blocks.append(nn.Sequential(*blocks))
 
         self.to(self.configuration.DEVICE)
+        for block in self.blocks:
+            block.to(self.configuration.DEVICE)
 
     def forward(self, cxyz: torch.Tensor):
-        x = self.main_1(cxyz)
-        x = torch.cat((x, cxyz), dim=1)
-        x = self.main_2(x)
 
-        return x
+        xyz = cxyz[:, :3]
+        latent_shape = cxyz[:, 3:]
+        latent_shape_ = latent_shape.reshape(-1, self.configuration.NUM_LATENT_POINTS, 3)
+        
+        # distance between xyz and latent shape
+        distance = torch.func.vmap(lambda x, y: torch.cdist(x.unsqueeze(0), y))(xyz, latent_shape_)
+
+        # select k closest points
+        _, closest_indices = torch.topk(distance, k=self.configuration.K, dim=2, largest=False)
+        closest_indices = closest_indices.squeeze().unsqueeze(-1)
+        latent_shape_selected = torch.gather(latent_shape_, dim=1, index=closest_indices.expand(-1, -1, 3))
+
+        xyz_projected = self.xyz_projection(torch.cat([xyz, latent_shape_selected.flatten(1)], dim=1))
+        latent_shape_projected = self.latent_projection(latent_shape)
+        
+        x_, _ = self.attention(
+            query=xyz_projected,
+            key=latent_shape_projected,
+            value=latent_shape_projected,
+        )
+        
+        x_ = self.layer_norm_1(x_ + xyz_projected)
+        x_ = self.layer_norm_2(self.ff(x_) + x_)
+        
+        x = x_
+        for b, block in enumerate(self.blocks):
+            x = block(x)
+            
+            if b + 1 != self.configuration.NUM_BLOCKS:
+                x = torch.cat([x, x_], dim=1)
+                
+        sdf_preds = x
+        
+        return sdf_preds
 
     @torch.no_grad()
     def reconstruct(
