@@ -16,7 +16,9 @@ from latent_shape_interpolator.src.config import Configuration
 
 
 class LatentShapes(nn.Module):
-    def __init__(self, latent_shapes: torch.Tensor, noise_min: Optional[float] = None, noise_max: Optional[float] = None):
+    def __init__(
+        self, latent_shapes: torch.Tensor, noise_min: Optional[float] = None, noise_max: Optional[float] = None
+    ):
         super().__init__()
 
         self.noise = torch.zeros_like(latent_shapes)
@@ -44,37 +46,37 @@ class SDFDecoder(nn.Module):
 
         # define latent shapes embedding
         self.latent_shapes_embedding = LatentShapes(latent_shapes=self.latent_shapes)
-        
+
         self.xyz_projection = nn.Linear(3 + self.configuration.K * 3, self.configuration.ATTENTION_DIM)
         self.latent_projection = nn.Linear(self.configuration.NUM_LATENT_POINTS * 3, self.configuration.ATTENTION_DIM)
-        
+
         self.attention = nn.MultiheadAttention(
             embed_dim=self.configuration.ATTENTION_DIM,
             num_heads=self.configuration.NUM_HEADS,
             dropout=0.1,
             batch_first=True,
         )
-        
+
         self.ff = nn.Sequential(
             nn.Linear(self.configuration.ATTENTION_DIM, self.configuration.ATTENTION_DIM * 4),
             nn.ReLU(inplace=True),
             nn.Linear(self.configuration.ATTENTION_DIM * 4, self.configuration.ATTENTION_DIM),
         )
-        
+
         self.layer_norm_1 = nn.LayerNorm(self.configuration.ATTENTION_DIM)
         self.layer_norm_2 = nn.LayerNorm(self.configuration.ATTENTION_DIM)
-        
+
         self.first_block_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
-        
+
         self.blocks: List[nn.Sequential]
         self.blocks = []
         for b in range(self.configuration.NUM_BLOCKS):
-
             blocks: List[nn.Module]
             blocks = []
-            
+
             in_features = (
-                self.configuration.ATTENTION_DIM if b == 0
+                self.configuration.ATTENTION_DIM
+                if b == 0
                 else self.configuration.ATTENTION_DIM + self.configuration.HIDDEN_DIM
             )
 
@@ -84,7 +86,7 @@ class SDFDecoder(nn.Module):
                     getattr(nn, self.configuration.ACTIVATION)(**self.configuration.ACTIVATION_KWARGS),
                 ]
             )
-                
+
             for _ in range(self.configuration.NUM_LAYERS):
                 blocks.extend(
                     [
@@ -94,13 +96,8 @@ class SDFDecoder(nn.Module):
                 )
 
             if b + 1 == self.configuration.NUM_BLOCKS:
-                blocks.extend(
-                    [
-                        nn.Linear(self.configuration.HIDDEN_DIM, 1),
-                        nn.Tanh()
-                    ]
-                )
-            
+                blocks.extend([nn.Linear(self.configuration.HIDDEN_DIM, 1), nn.Tanh()])
+
             self.blocks.append(nn.Sequential(*blocks))
 
         self.to(self.configuration.DEVICE)
@@ -108,11 +105,10 @@ class SDFDecoder(nn.Module):
             block.to(self.configuration.DEVICE)
 
     def forward(self, cxyz: torch.Tensor):
-
         xyz = cxyz[:, :3]
         latent_shape = cxyz[:, 3:]
         latent_shape_ = latent_shape.reshape(-1, self.configuration.NUM_LATENT_POINTS, 3)
-        
+
         # distance between xyz and latent shape
         distance = torch.func.vmap(lambda x, y: torch.cdist(x.unsqueeze(0), y))(xyz, latent_shape_)
 
@@ -123,25 +119,25 @@ class SDFDecoder(nn.Module):
 
         xyz_projected = self.xyz_projection(torch.cat([xyz, latent_shape_selected.flatten(1)], dim=1))
         latent_shape_projected = self.latent_projection(latent_shape)
-        
+
         x_, _ = self.attention(
             query=xyz_projected,
             key=latent_shape_projected,
             value=latent_shape_projected,
         )
-        
+
         x_ = self.layer_norm_1(x_ + xyz_projected)
         x_ = self.layer_norm_2(self.ff(x_) + x_)
-        
+
         x = x_
         for b, block in enumerate(self.blocks):
             x = block(x)
-            
+
             if b + 1 != self.configuration.NUM_BLOCKS:
                 x = torch.cat([x, x_], dim=1)
-                
+
         sdf_preds = x
-        
+
         return sdf_preds
 
     @torch.no_grad()
@@ -226,9 +222,9 @@ class SDFDecoder(nn.Module):
             mesh.vertices -= mesh.vertices.mean(axis=0)
 
             if rescale:
-                latent_shape_bounds = torch.stack(
-                    [latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0
-                ).cpu().numpy()
+                latent_shape_bounds = (
+                    torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0).cpu().numpy()
+                )
 
                 # compute scale factor
                 mesh_size = mesh.bounds[1] - mesh.bounds[0]
@@ -249,7 +245,7 @@ class SDFDecoder(nn.Module):
                     mesh.vertices, mesh.faces, resolution=self.configuration.RECONSTRUCTION_WATERTIGHT_RESOLUTION
                 )
                 mesh = trimesh.Trimesh(vertices=vertices, faces=faces)
-                
+
             if map_z_to_y:
                 mesh.vertices[:, [1, 2]] = mesh.vertices[:, [2, 1]]
 

@@ -1,5 +1,4 @@
 if __name__ == "__main__":
-    
     # CUDA_VISIBLE_DEVICE=0 python train.py
 
     import os
@@ -10,7 +9,7 @@ if __name__ == "__main__":
 
     if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
         sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-        
+
     from latent_shape_interpolator.src.config import Configuration
     from latent_shape_interpolator.src.data import SDFDataset
     from latent_shape_interpolator.src.model import SDFDecoder
@@ -27,16 +26,14 @@ if __name__ == "__main__":
         latent_shapes=sdf_dataset.latent_shapes,
         configuration=configuration,
     )
-    
+
     sdf_decoder_module = sdf_decoder
 
     if configuration.USE_MULTI_GPUS:
-        sdf_decoder = torch.nn.DataParallel(
-            sdf_decoder, device_ids=[i for i in range(torch.cuda.device_count())]
-        )
+        sdf_decoder = torch.nn.DataParallel(sdf_decoder, device_ids=[i for i in range(torch.cuda.device_count())])
 
         sdf_decoder_module = sdf_decoder.module
-    
+
     _sdf_decoder_optimizer = getattr(torch.optim, configuration.OPTIMIZER)
     sdf_decoder_optimizer = _sdf_decoder_optimizer(
         [
@@ -47,7 +44,7 @@ if __name__ == "__main__":
             {"params": sdf_decoder_module.ff.parameters(), "lr": configuration.LR_DECODER},
             {"params": sdf_decoder_module.layer_norm_1.parameters(), "lr": configuration.LR_DECODER},
             {"params": sdf_decoder_module.layer_norm_2.parameters(), "lr": configuration.LR_DECODER},
-            *[{"params": block.parameters(), "lr": configuration.LR_DECODER} for block in sdf_decoder_module.blocks]
+            *[{"params": block.parameters(), "lr": configuration.LR_DECODER} for block in sdf_decoder_module.blocks],
         ]
     )
 

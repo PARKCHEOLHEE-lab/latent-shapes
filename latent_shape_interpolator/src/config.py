@@ -73,13 +73,13 @@ class ModelConfiguration:
     MARCHING_CUBES_LEVEL = 0.00
     NUM_LAYERS = 5
     NUM_BLOCKS = 10
-    
+
     K = 5
 
     OPTIMIZER = "AdamW"
     ACTIVATION = "ReLU"
     ACTIVATION_KWARGS = {"inplace": True}
-    
+
     CUDA = "cuda"
     CPU = "cpu"
 
@@ -90,13 +90,13 @@ class ModelConfiguration:
     print("CUDA status")
     print(f"  torch.cuda.is_available(): {torch.cuda.is_available()}")
     print(f"  DEVICE: {DEVICE} \n")
-    
+
     USE_MULTI_GPUS = False
 
     if DEVICE == CUDA:
         for i in range(torch.cuda.device_count()):
             print(f"Current device: {torch.cuda.get_device_name(i)}")
-            
+
         USE_MULTI_GPUS = torch.cuda.device_count() >= 2
 
 

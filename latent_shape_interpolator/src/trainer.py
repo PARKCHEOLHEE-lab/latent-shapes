@@ -156,9 +156,8 @@ class Trainer:
             loss /= self.configuration.ACCUMULATION_STEPS
 
             loss.backward()
-            if (
-                (batch_index + 1) % self.configuration.ACCUMULATION_STEPS == 0
-                or (batch_index + 1) == len(self.sdf_dataset.train_dataloader)
+            if (batch_index + 1) % self.configuration.ACCUMULATION_STEPS == 0 or (batch_index + 1) == len(
+                self.sdf_dataset.train_dataloader
             ):
                 self.sdf_decoder_optimizer.step()
                 self.sdf_decoder_optimizer.zero_grad()
@@ -170,14 +169,10 @@ class Trainer:
         return loss_mean
 
     def train(self) -> None:
-        
         # copy used configuration
         config_path = inspect.getfile(Configuration)
-        shutil.copy(
-            config_path, 
-            os.path.join(self.log_dir, os.path.basename(config_path))
-        )
-        
+        shutil.copy(config_path, os.path.join(self.log_dir, os.path.basename(config_path)))
+
         epoch_start = self.states["epoch"]
         epoch_end = self.configuration.EPOCHS + 1
 
@@ -197,7 +192,6 @@ class Trainer:
             self.scheduler.step(loss_mean_weighted_sum)
 
             if loss_mean_weighted_sum < self.states["loss_mean_weighted_sum"]:
-                
                 print(
                     f"""
                     states updated:
@@ -222,7 +216,7 @@ class Trainer:
 
                     if reconstruction_results.count(None) == latent_shapes_batch.shape[0]:
                         print(f"All reconstructions failed at epoch {epoch}")
-                        
+
                 self.states.update(
                     {
                         "epoch": epoch,
