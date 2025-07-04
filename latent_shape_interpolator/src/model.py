@@ -3,10 +3,10 @@ import sys
 import torch
 import skimage
 import trimesh
-import numpy as np
 import torch.nn as nn
 import point_cloud_utils as pcu
 
+from tqdm import tqdm
 from typing import Optional, List
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
@@ -46,8 +46,12 @@ class SDFDecoder(nn.Module):
 
         # define latent shapes embedding
         self.latent_shapes_embedding = LatentShapes(latent_shapes=self.latent_shapes)
+        
+        self.xyz_projection_in_features = 3
+        if self.configuration.USE_CDIST:
+           self.xyz_projection_in_features += self.configuration.CDIST_K * 3
 
-        self.xyz_projection = nn.Linear(3 + self.configuration.K * 3, self.configuration.ATTENTION_DIM)
+        self.xyz_projection = nn.Linear(self.xyz_projection_in_features, self.configuration.ATTENTION_DIM)
         self.latent_projection = nn.Linear(self.configuration.NUM_LATENT_POINTS * 3, self.configuration.ATTENTION_DIM)
 
         self.attention = nn.MultiheadAttention(
@@ -107,17 +111,23 @@ class SDFDecoder(nn.Module):
     def forward(self, cxyz: torch.Tensor):
         xyz = cxyz[:, :3]
         latent_shape = cxyz[:, 3:]
-        latent_shape_ = latent_shape.reshape(-1, self.configuration.NUM_LATENT_POINTS, 3)
+        
+        if self.configuration.USE_CDIST:
+            latent_shape_ = latent_shape.reshape(-1, self.configuration.NUM_LATENT_POINTS, 3)
 
-        # distance between xyz and latent shape
-        distance = torch.func.vmap(lambda x, y: torch.cdist(x.unsqueeze(0), y))(xyz, latent_shape_)
+            # distance between xyz and latent shape
+            distance = torch.func.vmap(lambda x, y: torch.cdist(x.unsqueeze(0), y))(xyz, latent_shape_)
 
-        # select k closest points
-        _, closest_indices = torch.topk(distance, k=self.configuration.K, dim=2, largest=False)
-        closest_indices = closest_indices.squeeze().unsqueeze(-1)
-        latent_shape_selected = torch.gather(latent_shape_, dim=1, index=closest_indices.expand(-1, -1, 3))
+            # select k closest points
+            _, closest_indices = torch.topk(distance, k=self.configuration.CDIST_K, dim=2, largest=False)
+            closest_indices = closest_indices.squeeze().unsqueeze(-1)
+            latent_shape_selected = torch.gather(latent_shape_, dim=1, index=closest_indices.expand(-1, -1, 3))
 
-        xyz_projected = self.xyz_projection(torch.cat([xyz, latent_shape_selected.flatten(1)], dim=1))
+            xyz_projected = self.xyz_projection(torch.cat([xyz, latent_shape_selected.flatten(1)], dim=1))
+
+        else:
+            xyz_projected = self.xyz_projection(xyz)
+
         latent_shape_projected = self.latent_projection(latent_shape)
 
         x_, _ = self.attention(
@@ -185,7 +195,7 @@ class SDFDecoder(nn.Module):
             sdfs = []
             xyz_splitted = xyz.split(self.configuration.RECONSTRUCTION_GRID_SIZE * 20)
 
-            for xyz_batch in xyz_splitted:
+            for xyz_batch in tqdm(xyz_splitted, total=len(xyz_splitted), desc="reconstructing..."):
                 latent_shape_expanded = latent_shape_flattened.expand(xyz_batch.shape[0], -1)
                 cxyz = torch.cat([xyz_batch, latent_shape_expanded], dim=-1)
 
