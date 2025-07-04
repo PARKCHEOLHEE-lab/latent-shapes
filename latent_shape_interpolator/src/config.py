@@ -38,7 +38,7 @@ class DataConfiguration:
 
 
 class ModelConfiguration:
-    EPOCHS = 500
+    EPOCHS = 50
     SEED = 777
 
     BATCH_SIZE = 512
@@ -64,17 +64,18 @@ class ModelConfiguration:
     SCHEDULER_FACTOR = 0.1
 
     TRAIN_VALIDATION_RATIO = [0.8, 0.2]
-
+    
     RECONSTRUCTION_INTERVAL = 1
     RECONSTRUCTION_WATERTIGHT_RESOLUTION = 50000
     RECONSTRUCTION_COUNT = 5
     RECONSTRUCTION_GRID_SIZE = 192
 
     MARCHING_CUBES_LEVEL = 0.00
-    NUM_LAYERS = 5
-    NUM_BLOCKS = 10
+    NUM_LAYERS = 7
+    NUM_BLOCKS = 2
 
-    K = 5
+    CDIST_K = 3
+    USE_CDIST = True
 
     OPTIMIZER = "AdamW"
     ACTIVATION = "ReLU"
