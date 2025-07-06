@@ -76,6 +76,7 @@ class ModelConfiguration:
 
     CDIST_K = 3
     USE_CDIST = True
+    USE_SHAPE_LOSS = True
 
     OPTIMIZER = "AdamW"
     ACTIVATION = "ReLU"

@@ -99,7 +99,7 @@ class Trainer:
         for _, data in tqdm(
             enumerate(self.sdf_dataset.validation_dataloader), total=len(self.sdf_dataset.validation_dataloader)
         ):
-            xyz_batch, sdf_batch, class_number_batch, _, _ = data
+            xyz_batch, sdf_batch, class_number_batch, latent_shapes_batch_r, _ = data
 
             latent_shapes_batch = self.sdf_decoder_module.latent_shapes_embedding(class_number_batch)
             latent_shapes_batch = latent_shapes_batch.reshape(latent_shapes_batch.shape[0], -1)
@@ -117,6 +117,12 @@ class Trainer:
             sdf_batch = torch.clamp(sdf_batch, min=-self.configuration.CLAMP, max=self.configuration.CLAMP)
 
             loss = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
+            
+            if self.configuration.USE_SHAPE_LOSS:
+                loss = loss + torch.nn.functional.mse_loss(
+                    latent_shapes_batch.reshape(-1, self.configuration.NUM_LATENT_POINTS, 3), 
+                    latent_shapes_batch_r
+                )
 
             losses_val.append(loss.item())
 
@@ -135,7 +141,7 @@ class Trainer:
         for batch_index, data in tqdm(
             enumerate(self.sdf_dataset.train_dataloader), total=len(self.sdf_dataset.train_dataloader)
         ):
-            xyz_batch, sdf_batch, class_number_batch, _, _ = data
+            xyz_batch, sdf_batch, class_number_batch, latent_shapes_batch_r, _ = data
 
             latent_shapes_batch = self.sdf_decoder_module.latent_shapes_embedding(class_number_batch)
             latent_shapes_batch = latent_shapes_batch.reshape(latent_shapes_batch.shape[0], -1)
@@ -153,7 +159,14 @@ class Trainer:
             sdf_batch = torch.clamp(sdf_batch, min=-self.configuration.CLAMP, max=self.configuration.CLAMP)
 
             loss = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
-            loss /= self.configuration.ACCUMULATION_STEPS
+
+            if self.configuration.USE_SHAPE_LOSS:
+                loss = loss + torch.nn.functional.mse_loss(
+                    latent_shapes_batch.reshape(-1, self.configuration.NUM_LATENT_POINTS, 3), 
+                    latent_shapes_batch_r
+                )
+            
+            loss = loss / self.configuration.ACCUMULATION_STEPS
 
             loss.backward()
             if (batch_index + 1) % self.configuration.ACCUMULATION_STEPS == 0 or (batch_index + 1) == len(
