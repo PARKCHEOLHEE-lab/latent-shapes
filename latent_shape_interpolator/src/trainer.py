@@ -50,7 +50,7 @@ class Trainer:
 
         # default states
         self.states = {
-            "epoch": 1,
+            "epoch": 0,
             "loss_mean": torch.inf,
             "loss_mean_val": torch.inf,
             "loss_sdf_val": torch.inf,
@@ -186,7 +186,7 @@ class Trainer:
         config_path = inspect.getfile(Configuration)
         shutil.copy(config_path, os.path.join(self.log_dir, os.path.basename(config_path)))
 
-        epoch_start = self.states["epoch"]
+        epoch_start = self.states["epoch"] + 1
         epoch_end = self.configuration.EPOCHS + 1
 
         for epoch in tqdm(range(epoch_start, epoch_end)):
@@ -204,6 +204,25 @@ class Trainer:
 
             self.scheduler.step(loss_mean_weighted_sum)
 
+            if epoch == 1 or epoch % self.configuration.RECONSTRUCTION_INTERVAL == 0:
+                
+                latent_shapes_batch = self.sdf_dataset.latent_shapes[
+                    torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
+                ]
+                
+                reconstruction_results = self.sdf_decoder_module.reconstruct(
+                    latent_shapes_batch,
+                    save_path=self.log_dir,
+                    normalize=True,
+                    check_watertight=False,
+                    add_noise=False,
+                    rescale=True,
+                    epoch=epoch,
+                )
+
+                if reconstruction_results.count(None) == latent_shapes_batch.shape[0]:
+                    print(f"All reconstructions failed at epoch {epoch}")
+
             if loss_mean_weighted_sum < self.states["loss_mean_weighted_sum"]:
                 print(
                     f"""
@@ -212,23 +231,6 @@ class Trainer:
                         self.states["loss_mean_weighted_sum"]: {self.states["loss_mean_weighted_sum"]}
                     """
                 )
-
-                if epoch == 1 or epoch % self.configuration.RECONSTRUCTION_INTERVAL == 0:
-                    latent_shapes_batch = self.sdf_decoder_module.latent_shapes_embedding(
-                        torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
-                    )
-
-                    reconstruction_results = self.sdf_decoder.reconstruct(
-                        latent_shapes_batch,
-                        save_path=self.log_dir,
-                        normalize=True,
-                        check_watertight=False,
-                        add_noise=False,
-                        rescale=True,
-                    )
-
-                    if reconstruction_results.count(None) == latent_shapes_batch.shape[0]:
-                        print(f"All reconstructions failed at epoch {epoch}")
 
                 self.states.update(
                     {
