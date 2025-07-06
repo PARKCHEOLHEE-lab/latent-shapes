@@ -53,7 +53,7 @@ class ModelConfiguration:
 
     LATENT_POINTS_NOISE = 0.05
 
-    LOSS_TRAIN_WEIGHT = 0.2
+    LOSS_TRAIN_WEIGHT = 0.1
     LOSS_VALIDATION_WEIGHT = 1.0
 
     CLAMP = 0.1
