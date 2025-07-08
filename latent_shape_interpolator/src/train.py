@@ -29,7 +29,7 @@ if __name__ == "__main__":
 
     sdf_decoder_module = sdf_decoder
 
-    if configuration.USE_MULTI_GPUS:
+    if configuration.USE_MULTI_GPUS and torch.cuda.device_count() >= 2:
         sdf_decoder = torch.nn.DataParallel(sdf_decoder, device_ids=[i for i in range(torch.cuda.device_count())])
 
         sdf_decoder_module = sdf_decoder.module
