@@ -150,7 +150,7 @@ class SDFDecoder(nn.Module):
 
         return sdf_preds
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def reconstruct(
         self,
         latent_shapes: torch.Tensor,
@@ -162,7 +162,6 @@ class SDFDecoder(nn.Module):
         rescale: bool = False,
         epoch: Optional[int] = None,
     ):
-        self.eval()
 
         if add_noise:
             latent_shapes += -self.configuration.LATENT_POINTS_NOISE + torch.rand_like(latent_shapes) * (
@@ -266,7 +265,5 @@ class SDFDecoder(nn.Module):
             mesh.export(file_path)
 
             results.append(mesh)
-
-        self.train()
 
         return results
