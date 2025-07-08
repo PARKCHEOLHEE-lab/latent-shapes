@@ -49,7 +49,8 @@ def interface():
 @app.route("/api/latent_shapes", methods=["GET"])
 def get_random_latent_shape():
     random_index = torch.randint(0, sdf_dataset.latent_shapes.shape[0], (1,))
-    latent_shape = sdf_dataset.latent_shapes[random_index].squeeze(0)
+    latent_shape = sdf_decoder.latent_shapes_embedding(random_index).squeeze(0)
+    # latent_shape = sdf_dataset.latent_shapes[random_index].squeeze(0)
     faces = sdf_dataset.faces[random_index].squeeze(0)
 
     return jsonify({"latent_shape": latent_shape.tolist(), "faces": faces.tolist()})
