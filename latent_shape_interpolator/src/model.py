@@ -7,7 +7,7 @@ import torch.nn as nn
 import point_cloud_utils as pcu
 
 from tqdm import tqdm
-from typing import Optional, List
+from typing import Optional, List, Union
 
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
@@ -160,7 +160,7 @@ class SDFDecoder(nn.Module):
         map_z_to_y: bool = True,
         add_noise: bool = False,
         rescale: bool = False,
-        epoch: Optional[int] = None,
+        additional_title: Optional[Union[str, int]] = None,
     ):
 
         if add_noise:
@@ -259,8 +259,8 @@ class SDFDecoder(nn.Module):
                 mesh.vertices[:, [1, 2]] = mesh.vertices[:, [2, 1]]
 
             file_path = os.path.join(save_path, f"mesh_reconstructed_{lsi}.obj")
-            if isinstance(epoch, int):
-                file_path = os.path.join(save_path, f"mesh_reconstructed_{lsi}_{epoch}.obj")
+            if additional_title is not None:
+                file_path = os.path.join(save_path, f"mesh_reconstructed_{lsi}_{additional_title}.obj")
 
             mesh.export(file_path)
 
