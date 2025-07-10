@@ -12,20 +12,23 @@ if __name__ == "__main__":
 
     from latent_shape_interpolator.src.config import Configuration
     from latent_shape_interpolator.src.data import SDFDataset
-    from latent_shape_interpolator.src.model import SDFDecoder
+    from latent_shape_interpolator.src.model import SDFDecoder, LatentShapes
     from latent_shape_interpolator.src.trainer import Trainer
 
     configuration = Configuration()
     configuration.set_seed()
 
     sdf_dataset = SDFDataset.create_dataset(
-        data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=10
+        data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=1
     )
 
-    sdf_decoder = SDFDecoder(
+    latent_shapes = LatentShapes(
         latent_shapes=sdf_dataset.latent_shapes,
-        configuration=configuration,
+        noise_min=-configuration.LATENT_SHAPES_NOISE_RECONSTRUCTION,
+        noise_max=configuration.LATENT_SHAPES_NOISE_RECONSTRUCTION,
     )
+
+    sdf_decoder = SDFDecoder(configuration=configuration)
 
     sdf_decoder_module = sdf_decoder
 
@@ -35,25 +38,19 @@ if __name__ == "__main__":
         sdf_decoder_module = sdf_decoder.module
 
     _sdf_decoder_optimizer = getattr(torch.optim, configuration.OPTIMIZER)
-    sdf_decoder_optimizer = _sdf_decoder_optimizer(
-        [
-            {"params": sdf_decoder_module.latent_shapes_embedding.parameters(), "lr": configuration.LR_LATENT_SHAPES},
-            {"params": sdf_decoder_module.xyz_projection.parameters(), "lr": configuration.LR_DECODER},
-            {"params": sdf_decoder_module.latent_projection.parameters(), "lr": configuration.LR_DECODER},
-            {"params": sdf_decoder_module.attention.parameters(), "lr": configuration.LR_DECODER},
-            {"params": sdf_decoder_module.ff.parameters(), "lr": configuration.LR_DECODER},
-            {"params": sdf_decoder_module.layer_norm_1.parameters(), "lr": configuration.LR_DECODER},
-            {"params": sdf_decoder_module.layer_norm_2.parameters(), "lr": configuration.LR_DECODER},
-            *[{"params": block.parameters(), "lr": configuration.LR_DECODER} for block in sdf_decoder_module.blocks],
-        ]
-    )
+    sdf_decoder_optimizer = _sdf_decoder_optimizer(sdf_decoder_module.parameters(), lr=configuration.LR_DECODER)
+
+    _latent_shapes_optimizer = getattr(torch.optim, configuration.OPTIMIZER)
+    latent_shapes_optimizer = _latent_shapes_optimizer(latent_shapes.parameters(), lr=configuration.LR_LATENT_SHAPES)
 
     sdf_decoder_trainer = Trainer(
+        latent_shapes=latent_shapes,
+        latent_shapes_optimizer=latent_shapes_optimizer,
         sdf_decoder=sdf_decoder,
         sdf_decoder_optimizer=sdf_decoder_optimizer,
         sdf_dataset=sdf_dataset,
         configuration=configuration,
-        # pretrained_dir="latent_shape_interpolator/runs/06-23-2025__21-24-31",
+        # pretrained_dir="latent_shape_interpolator/runs/07-05-2025__15-08-21",
     )
 
     sdf_decoder_trainer.train()
