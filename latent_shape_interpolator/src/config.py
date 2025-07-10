@@ -40,11 +40,11 @@ class DataConfiguration:
 
 
 class ModelConfiguration:
-    EPOCHS = 50
+    EPOCHS = 100
     SEED = 777
 
     BATCH_SIZE = 512
-    ACCUMULATION_STEPS = 1
+    ACCUMULATION_STEPS = 4
 
     ATTENTION_DIM = 256
     NUM_HEADS = 8
@@ -53,7 +53,7 @@ class ModelConfiguration:
     LR_LATENT_SHAPES = 1e-5
     LR_DECODER = 1e-3
 
-    LATENT_POINTS_NOISE = 0.05
+    LATENT_SHAPES_NOISE_RECONSTRUCTION = 0.05
 
     LOSS_TRAIN_WEIGHT = 0.1
     LOSS_VALIDATION_WEIGHT = 1.0
@@ -66,7 +66,7 @@ class ModelConfiguration:
     SCHEDULER_FACTOR = 0.1
 
     TRAIN_VALIDATION_RATIO = [0.8, 0.2]
-    
+
     RECONSTRUCTION_INTERVAL = 1
     RECONSTRUCTION_WATERTIGHT_RESOLUTION = 50000
     RECONSTRUCTION_COUNT = 5
@@ -77,8 +77,8 @@ class ModelConfiguration:
     NUM_BLOCKS = 2
 
     CDIST_K = 3
-    USE_CDIST = True
-    USE_SHAPE_LOSS = True
+    USE_CDIST = False
+    USE_ATTENTION = False
 
     OPTIMIZER = "AdamW"
     ACTIVATION = "ReLU"

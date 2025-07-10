@@ -38,39 +38,42 @@ class LatentShapes(nn.Module):
 
 
 class SDFDecoder(nn.Module):
-    def __init__(self, latent_shapes: torch.Tensor, configuration: Configuration):
+    def __init__(self, configuration: Configuration):
         super().__init__()
 
-        self.latent_shapes = latent_shapes
         self.configuration = configuration
 
-        # define latent shapes embedding
-        self.latent_shapes_embedding = LatentShapes(latent_shapes=self.latent_shapes)
-        
-        self.xyz_projection_in_features = 3
-        if self.configuration.USE_CDIST:
-           self.xyz_projection_in_features += self.configuration.CDIST_K * 3
-
-        self.xyz_projection = nn.Linear(self.xyz_projection_in_features, self.configuration.ATTENTION_DIM)
-        self.latent_projection = nn.Linear(self.configuration.NUM_LATENT_POINTS * 3, self.configuration.ATTENTION_DIM)
-
-        self.attention = nn.MultiheadAttention(
-            embed_dim=self.configuration.ATTENTION_DIM,
-            num_heads=self.configuration.NUM_HEADS,
-            dropout=0.1,
-            batch_first=True,
-        )
-
-        self.ff = nn.Sequential(
-            nn.Linear(self.configuration.ATTENTION_DIM, self.configuration.ATTENTION_DIM * 4),
-            nn.ReLU(inplace=True),
-            nn.Linear(self.configuration.ATTENTION_DIM * 4, self.configuration.ATTENTION_DIM),
-        )
-
-        self.layer_norm_1 = nn.LayerNorm(self.configuration.ATTENTION_DIM)
-        self.layer_norm_2 = nn.LayerNorm(self.configuration.ATTENTION_DIM)
-
         self.first_block_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
+        if self.configuration.USE_CDIST:
+            self.first_block_in_features += self.configuration.CDIST_K * 3
+
+        if self.configuration.USE_ATTENTION:
+            self.first_block_in_features = self.configuration.ATTENTION_DIM
+
+            self.xyz_projection_in_features = 3
+            if self.configuration.USE_CDIST:
+                self.xyz_projection_in_features += self.configuration.CDIST_K * 3
+
+            self.xyz_projection = nn.Linear(self.xyz_projection_in_features, self.configuration.ATTENTION_DIM)
+            self.latent_projection = nn.Linear(
+                self.configuration.NUM_LATENT_POINTS * 3, self.configuration.ATTENTION_DIM
+            )
+
+            self.attention = nn.MultiheadAttention(
+                embed_dim=self.configuration.ATTENTION_DIM,
+                num_heads=self.configuration.NUM_HEADS,
+                dropout=0.1,
+                batch_first=True,
+            )
+
+            self.ff = nn.Sequential(
+                nn.Linear(self.configuration.ATTENTION_DIM, self.configuration.ATTENTION_DIM * 4),
+                nn.ReLU(inplace=True),
+                nn.Linear(self.configuration.ATTENTION_DIM * 4, self.configuration.ATTENTION_DIM),
+            )
+
+            self.layer_norm_1 = nn.LayerNorm(self.configuration.ATTENTION_DIM)
+            self.layer_norm_2 = nn.LayerNorm(self.configuration.ATTENTION_DIM)
 
         self.blocks: List[nn.Sequential]
         self.blocks = []
@@ -79,9 +82,7 @@ class SDFDecoder(nn.Module):
             blocks = []
 
             in_features = (
-                self.configuration.ATTENTION_DIM
-                if b == 0
-                else self.configuration.ATTENTION_DIM + self.configuration.HIDDEN_DIM
+                self.first_block_in_features if b == 0 else self.first_block_in_features + self.configuration.HIDDEN_DIM
             )
 
             blocks.extend(
@@ -103,6 +104,7 @@ class SDFDecoder(nn.Module):
                 blocks.extend([nn.Linear(self.configuration.HIDDEN_DIM, 1), nn.Tanh()])
 
             self.blocks.append(nn.Sequential(*blocks))
+            self.blocks = nn.ModuleList(self.blocks)
 
         self.to(self.configuration.DEVICE)
         for block in self.blocks:
@@ -111,33 +113,37 @@ class SDFDecoder(nn.Module):
     def forward(self, cxyz: torch.Tensor):
         xyz = cxyz[:, :3]
         latent_shape = cxyz[:, 3:]
-        
+
+        x_ = torch.cat([xyz, latent_shape], dim=1)
+
         if self.configuration.USE_CDIST:
-            latent_shape_ = latent_shape.reshape(-1, self.configuration.NUM_LATENT_POINTS, 3)
+            latent_shape_reshaped = latent_shape.reshape(-1, self.configuration.NUM_LATENT_POINTS, 3)
 
             # distance between xyz and latent shape
-            distance = torch.func.vmap(lambda x, y: torch.cdist(x.unsqueeze(0), y))(xyz, latent_shape_)
+            distance = torch.func.vmap(lambda x, y: torch.cdist(x.unsqueeze(0), y))(xyz, latent_shape_reshaped)
 
             # select k closest points
             _, closest_indices = torch.topk(distance, k=self.configuration.CDIST_K, dim=2, largest=False)
             closest_indices = closest_indices.squeeze().unsqueeze(-1)
-            latent_shape_selected = torch.gather(latent_shape_, dim=1, index=closest_indices.expand(-1, -1, 3))
+            latent_shape_selected = torch.gather(latent_shape_reshaped, dim=1, index=closest_indices.expand(-1, -1, 3))
 
-            xyz_projected = self.xyz_projection(torch.cat([xyz, latent_shape_selected.flatten(1)], dim=1))
+            xyz = torch.cat([xyz, latent_shape_selected.flatten(1)], dim=1)
 
-        else:
-            xyz_projected = self.xyz_projection(xyz)
+            if not self.configuration.USE_ATTENTION:
+                x_ = torch.cat([xyz, latent_shape], dim=1)
 
-        latent_shape_projected = self.latent_projection(latent_shape)
+        if self.configuration.USE_ATTENTION:
+            xyz = self.xyz_projection(xyz)
+            latent_shape = self.latent_projection(latent_shape)
 
-        x_, _ = self.attention(
-            query=xyz_projected,
-            key=latent_shape_projected,
-            value=latent_shape_projected,
-        )
+            x_, _ = self.attention(
+                query=xyz,
+                key=latent_shape,
+                value=latent_shape,
+            )
 
-        x_ = self.layer_norm_1(x_ + xyz_projected)
-        x_ = self.layer_norm_2(self.ff(x_) + x_)
+            x_ = self.layer_norm_1(x_ + xyz)
+            x_ = self.layer_norm_2(self.ff(x_) + x_)
 
         x = x_
         for b, block in enumerate(self.blocks):
@@ -162,10 +168,10 @@ class SDFDecoder(nn.Module):
         rescale: bool = False,
         additional_title: Optional[Union[str, int]] = None,
     ):
-
         if add_noise:
-            latent_shapes += -self.configuration.LATENT_POINTS_NOISE + torch.rand_like(latent_shapes) * (
-                self.configuration.LATENT_POINTS_NOISE - (-self.configuration.LATENT_POINTS_NOISE)
+            latent_shapes += -self.configuration.LATENT_SHAPES_NOISE_RECONSTRUCTION + torch.rand_like(latent_shapes) * (
+                self.configuration.LATENT_SHAPES_NOISE_RECONSTRUCTION
+                - (-self.configuration.LATENT_SHAPES_NOISE_RECONSTRUCTION)
             )
 
         x = torch.linspace(
