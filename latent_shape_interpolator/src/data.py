@@ -130,8 +130,8 @@ class DataCreator:
         )
 
         surface_points_noisy_sampled += np.random.uniform(
-            -self.configuration.LATENT_POINTS_NOISE,
-            self.configuration.LATENT_POINTS_NOISE,
+            -self.configuration.SURFACE_NOISY_SAMPLING_RANGE,
+            self.configuration.SURFACE_NOISY_SAMPLING_RANGE,
             size=surface_points_noisy_sampled.shape,
         )
 
