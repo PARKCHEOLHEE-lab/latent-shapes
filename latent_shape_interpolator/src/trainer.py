@@ -297,7 +297,7 @@ class Trainer:
                     check_watertight=False,
                     add_noise=True,
                     rescale=True,
-                    additional_title=f"loaded_data_wn_{epoch}",
+                    additional_title=f"loaded_data_wn",
                 )
 
                 _sdf_decoder.reconstruct(
@@ -307,7 +307,7 @@ class Trainer:
                     check_watertight=False,
                     add_noise=False,
                     rescale=True,
-                    additional_title=f"loaded_data_{epoch}",
+                    additional_title=f"loaded_data",
                 )
 
                 _sdf_decoder.reconstruct(
@@ -317,8 +317,5 @@ class Trainer:
                     check_watertight=False,
                     add_noise=False,
                     rescale=True,
-                    additional_title=f"loaded_emb_{epoch}",
+                    additional_title=f"loaded_emb",
                 )
-
-                # if reconstruction_results.count(None) == latent_shapes_batch.shape[0]:
-                #     print(f"All reconstructions failed at epoch {epoch}")
