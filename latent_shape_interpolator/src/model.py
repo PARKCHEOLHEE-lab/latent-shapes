@@ -48,7 +48,7 @@ class SDFDecoder(nn.Module):
             self.first_block_in_features += self.configuration.CDIST_K * 3
 
         if self.configuration.USE_ATTENTION:
-            self.first_block_in_features = self.configuration.ATTENTION_DIM
+            self.first_block_in_features = self.configuration.ATTENTION_DIM + 3
 
             self.xyz_projection_in_features = 3
             if self.configuration.USE_CDIST:
@@ -144,6 +144,8 @@ class SDFDecoder(nn.Module):
 
             x_ = self.layer_norm_1(x_ + xyz)
             x_ = self.layer_norm_2(self.ff(x_) + x_)
+
+            x_ = torch.cat([cxyz[:, :3], x_], dim=1)
 
         x = x_
         for b, block in enumerate(self.blocks):
