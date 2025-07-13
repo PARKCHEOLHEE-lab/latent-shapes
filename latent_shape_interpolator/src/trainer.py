@@ -86,9 +86,10 @@ class Trainer:
             self.states = torch.load(states_path)
             self.latent_shapes.load_state_dict(self.states["state_dict_latent_shapes"])
             self.latent_shapes_optimizer.load_state_dict(self.states["state_dict_latent_shapes_optimizer"])
+            self.scheduler_latent_shapes.load_state_dict(self.states["state_dict_scheduler_latent_shapes"])
             self.sdf_decoder.load_state_dict(self.states["state_dict_decoder"])
             self.sdf_decoder_optimizer.load_state_dict(self.states["state_dict_decoder_optimizer"])
-            self.scheduler_decoder.load_state_dict(self.states["state_dict_scheduler"])
+            self.scheduler_decoder.load_state_dict(self.states["state_dict_scheduler_decoder"])
 
             print(f"Loaded states successfully from `{pretrained_dir}`")
 
