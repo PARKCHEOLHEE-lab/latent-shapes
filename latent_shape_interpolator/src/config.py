@@ -78,7 +78,7 @@ class ModelConfiguration:
 
     CDIST_K = 3
     USE_CDIST = False
-    USE_ATTENTION = True
+    USE_ATTENTION = False
 
     OPTIMIZER = "AdamW"
     ACTIVATION = "ReLU"
