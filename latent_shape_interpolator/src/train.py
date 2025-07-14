@@ -50,7 +50,7 @@ if __name__ == "__main__":
         sdf_decoder_optimizer=sdf_decoder_optimizer,
         sdf_dataset=sdf_dataset,
         configuration=configuration,
-        # pretrained_dir="latent_shape_interpolator/runs/07-05-2025__15-08-21",
+        pretrained_dir="latent_shape_interpolator/runs/07-13-2025__13-15-20",
     )
 
     sdf_decoder_trainer.train()

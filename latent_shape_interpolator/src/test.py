@@ -28,7 +28,7 @@ if __name__ == "__main__":
     sdf_decoder = SDFDecoder(configuration=configuration)
 
     states = torch.load(
-        os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/07-09-2025__09-44-54/states.pth"))
+        os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/07-13-2025__13-15-20/states.pth"))
     )
 
     sdf_decoder.load_state_dict(states["state_dict_model"])
