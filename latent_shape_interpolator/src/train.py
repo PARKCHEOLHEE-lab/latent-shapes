@@ -19,7 +19,7 @@ if __name__ == "__main__":
     configuration.set_seed()
 
     sdf_dataset = SDFDataset.create_dataset(
-        data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=1
+        data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=10
     )
 
     latent_shapes = LatentShapes(
