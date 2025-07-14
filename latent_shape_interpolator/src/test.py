@@ -31,7 +31,7 @@ if __name__ == "__main__":
         os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/07-13-2025__13-15-20/states.pth"))
     )
 
-    sdf_decoder.load_state_dict(states["state_dict_model"])
+    sdf_decoder.load_state_dict(states["state_dict_decoder"])
     latent_shapes.load_state_dict(states["state_dict_latent_shapes"])
 
     # latent_shapes_batch = sdf_dataset.latent_shapes[
