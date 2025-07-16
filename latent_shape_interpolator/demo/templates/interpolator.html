@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>latent-shapes</title>
+    <title>interpolator</title>
     <script type="importmap">
         {
             "imports": {
@@ -180,7 +180,7 @@
             // remove reconstructed mesh
             if (mode === "reconstruct") {
                 for (let child of scene.children) {
-                    if (child.name === "reconstructed_mesh") {
+                    if (child.name === "reconstructed_mesh" || child.name === "reconstructed_wireframe") {
                         children_to_remove.push(child);
                     }
                 }
@@ -188,7 +188,7 @@
             // remove latent shape
             else {
                 for (let child of scene.children) {
-                    if (child.name === "latent_shape" || child.name === "reconstructed_mesh") {
+                    if (child.name === "latent_shape" || child.name === "reconstructed_mesh" || child.name === "reconstructed_wireframe") {
                         children_to_remove.push(child);
                     }
                 }
@@ -274,16 +274,35 @@
             geometry.setIndex(indices);
             geometry.computeVertexNormals();
 
-            const material = new THREE.MeshPhongMaterial({
-                color: 0xffffff,
-                transparent: true,
-                opacity: 0.3,
-                side: THREE.DoubleSide
-            });
 
-            const mesh = new THREE.Mesh(geometry, material);
+            const mesh_material = new THREE.MeshBasicMaterial(
+                {
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.6,
+                    wireframe: false,
+                    side: THREE.DoubleSide,
+                }
+            )
+            
+            const mesh_wireframe_material = new THREE.MeshBasicMaterial(
+                {
+                    color: 0x000000,
+                    transparent: true,
+                    opacity: 0.4,
+                    wireframe: true,
+                    side: THREE.DoubleSide,
+                }
+            )
+
+            const mesh = new THREE.Mesh(geometry, mesh_material);
             mesh.name = "reconstructed_mesh";
             scene.add(mesh);
+
+            const wireframe = new THREE.Mesh(geometry, mesh_wireframe_material);
+            wireframe.name = "reconstructed_wireframe";
+            scene.add(wireframe);
+
         }
 
         function render() {

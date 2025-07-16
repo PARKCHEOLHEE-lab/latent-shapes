@@ -38,12 +38,12 @@ sdf_decoder.load_state_dict(
 
 @app.route("/")
 def index():
-    return redirect(url_for("interface"))
+    return redirect(url_for("interpolator"))
 
 
-@app.route("/interface.html")
-def interface():
-    return render_template("interface.html")
+@app.route("/interpolator.html")
+def interpolator():
+    return render_template("interpolator.html")
 
 
 @app.route("/api/latent_shapes", methods=["GET"])
