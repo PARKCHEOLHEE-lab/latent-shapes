@@ -14,7 +14,7 @@ from torch.utils.data import DataLoader, Dataset, Subset
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from latent_shape_interpolator.src.config import Configuration
+from latent_shapes.src.config import Configuration
 
 
 class DataCreator:

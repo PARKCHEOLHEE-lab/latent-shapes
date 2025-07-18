@@ -9,9 +9,9 @@ import torch
 from flask import Flask, jsonify, request, render_template, redirect, url_for
 from flask_cors import CORS
 
-from latent_shape_interpolator.src.config import Configuration
-from latent_shape_interpolator.src.data import SDFDataset
-from latent_shape_interpolator.src.model import SDFDecoder, LatentShapes
+from latent_shapes.src.config import Configuration
+from latent_shapes.src.data import SDFDataset
+from latent_shapes.src.model import SDFDecoder, LatentShapes
 
 
 app = Flask(__name__)

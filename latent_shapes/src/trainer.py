@@ -14,9 +14,9 @@ from torch.optim import lr_scheduler
 if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
     sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-from latent_shape_interpolator.src.config import Configuration
-from latent_shape_interpolator.src.data import SDFDataset
-from latent_shape_interpolator.src.model import SDFDecoder, LatentShapes
+from latent_shapes.src.config import Configuration
+from latent_shapes.src.data import SDFDataset
+from latent_shapes.src.model import SDFDecoder, LatentShapes
 
 
 class Trainer:

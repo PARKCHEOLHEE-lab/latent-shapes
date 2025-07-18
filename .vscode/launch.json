@@ -16,7 +16,7 @@
             "name": "Python Debugger: train.py",
             "type": "debugpy",
             "request": "launch",
-            "program": "${workspaceFolder}/latent_shape_interpolator/src/train.py",
+            "program": "${workspaceFolder}/latent_shapes/src/train.py",
             "console": "integratedTerminal",
             "justMyCode": true,
             "env": {
