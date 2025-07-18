@@ -38,7 +38,7 @@ if __name__ == "__main__":
     #     torch.randperm(sdf_dataset.num_classes)[: configuration.RECONSTRUCTION_COUNT]
     # ]
 
-    latent_shapes_batch = latent_shapes(torch.randperm(sdf_dataset.num_classes)[: configuration.RECONSTRUCTION_COUNT])
+    latent_shapes_batch = latent_shapes(torch.randperm(sdf_dataset.num_classes)[:10])
 
     for _ in range(1):
         reconstruction_results = sdf_decoder.reconstruct(

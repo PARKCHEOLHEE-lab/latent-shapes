@@ -133,6 +133,7 @@ class Trainer:
 
             loss = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
             loss_shape = torch.nn.functional.mse_loss(self.latent_shapes(class_number_batch), latent_shapes_batch_r)
+            # 배치단위로 계산하는게 의도에 맞게 작동하는지 확인 필요할듯?
 
             losses_val.append(loss.item())
             losses_shape_val.append(loss_shape.item())

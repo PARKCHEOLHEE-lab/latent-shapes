@@ -11,7 +11,7 @@ from flask_cors import CORS
 
 from latent_shape_interpolator.src.config import Configuration
 from latent_shape_interpolator.src.data import SDFDataset
-from latent_shape_interpolator.src.model import SDFDecoder
+from latent_shape_interpolator.src.model import SDFDecoder, LatentShapes
 
 
 app = Flask(__name__)
@@ -19,21 +19,22 @@ CORS(app)
 
 
 configuration = Configuration()
+configuration.set_seed()
 
 sdf_dataset = SDFDataset.create_dataset(
-    data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=1
+    data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=10
 )
 
-sdf_decoder = SDFDecoder(
-    latent_shapes=sdf_dataset.latent_shapes,
-    configuration=configuration,
+latent_shapes = LatentShapes(latent_shapes=sdf_dataset.latent_shapes, noise_min=-0.1, noise_max=0.1)
+
+sdf_decoder = SDFDecoder(configuration=configuration)
+
+states = torch.load(
+    os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/07-13-2025__13-15-20/states.pth"))
 )
 
-sdf_decoder.load_state_dict(
-    torch.load(os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/07-02-2025__18-33-25/states.pth")))[
-        "state_dict_model"
-    ]
-)
+sdf_decoder.load_state_dict(states["state_dict_decoder"])
+latent_shapes.load_state_dict(states["state_dict_latent_shapes"])
 
 
 @app.route("/")
@@ -49,8 +50,7 @@ def interpolator():
 @app.route("/api/latent_shapes", methods=["GET"])
 def get_random_latent_shape():
     random_index = torch.randint(0, sdf_dataset.latent_shapes.shape[0], (1,))
-    latent_shape = sdf_decoder.latent_shapes_embedding(random_index).squeeze(0)
-    # latent_shape = sdf_dataset.latent_shapes[random_index].squeeze(0)
+    latent_shape = latent_shapes(random_index).squeeze(0)
     faces = sdf_dataset.faces[random_index].squeeze(0)
 
     return jsonify({"latent_shape": latent_shape.tolist(), "faces": faces.tolist()})
@@ -62,11 +62,6 @@ def reconstruct():
         data = request.get_json()
         latent_shapes = torch.tensor(data["latent_shapes"]).to(configuration.DEVICE)
         latent_shapes[:, [1, 2]] = latent_shapes[:, [2, 1]]
-
-        # latent_shapes = sdf_decoder.latent_shapes_embedding(0).unsqueeze(0)
-        print(latent_shapes)
-
-        # return jsonify({"message": "Reconstruction successful", "vertices": [], "faces": []})
 
         reconstruction_results = sdf_decoder.reconstruct(
             latent_shapes=latent_shapes.unsqueeze(0),
