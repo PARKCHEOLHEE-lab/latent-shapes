@@ -29,9 +29,7 @@ latent_shapes = LatentShapes(latent_shapes=sdf_dataset.latent_shapes, noise_min=
 
 sdf_decoder = SDFDecoder(configuration=configuration)
 
-states = torch.load(
-    os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/07-13-2025__13-15-20/states.pth"))
-)
+states = torch.load(os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/07-13-2025__13-15-20/states.pth")))
 
 sdf_decoder.load_state_dict(states["state_dict_decoder"])
 latent_shapes.load_state_dict(states["state_dict_latent_shapes"])
@@ -61,7 +59,6 @@ def reconstruct():
     try:
         data = request.get_json()
         latent_shapes = torch.tensor(data["latent_shapes"]).to(configuration.DEVICE)
-        latent_shapes[:, [1, 2]] = latent_shapes[:, [2, 1]]
 
         reconstruction_results = sdf_decoder.reconstruct(
             latent_shapes=latent_shapes.unsqueeze(0),
