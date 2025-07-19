@@ -11,7 +11,12 @@
         }
     </script>
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; }
+        body { 
+            margin: 0; 
+            padding: 0; 
+            overflow: hidden; 
+        }
+
         button {
             position: absolute;
             z-index: 1000;
@@ -19,9 +24,22 @@
             background: rgba(255, 255, 255, 0.8);
             border: 1px solid #ccc;
         }
-        #container { width: 100vw; height: 100vh; }
-        #load_button { top: 10px; left: 10px; }
-        #reconstruct_button { top: 10px; left: 160px; }
+
+        #container { 
+            width: 100vw; 
+            height: 100vh; 
+        }
+
+        #load_button { 
+            top: 10px; 
+            left: 10px; 
+        }
+
+        #reconstruct_button {
+             top: 10px;
+              left: 160px;
+        }
+
         #result {
             position: absolute;
             top: 60px;
@@ -31,7 +49,17 @@
             padding: 10px;
             border: 1px solid #ccc;
         }
-        .loading { opacity: 0.5; pointer-events: none; }
+        
+        .loading { 
+            opacity: 0.5; 
+            pointer-events: none; 
+        }
+
+        .select_box {
+            border: 1px solid #ccc;
+            background-color: rgba(255, 255, 255, 0.2);
+            position: fixed;
+        }
     </style>
 </head>
 <body>
@@ -43,12 +71,14 @@
         import * as THREE from "three";
         import { OrbitControls } from "three/addons/controls/OrbitControls.js";
         import { TransformControls } from "three/addons/controls/TransformControls.js";
+        import { SelectionBox } from 'three/addons/interactive/SelectionBox.js';
+        import { SelectionHelper } from 'three/addons/interactive/SelectionHelper.js';
 
         let scene, camera, renderer;
         let orbit_controls, raycaster, mouse;
         let transform_controls;
 
-        let points = [];
+        let latent_shape = [];
         let faces = [];
         let selected_object = null;
         let selected_point_index = -1;
@@ -86,80 +116,225 @@
         transform_controls.setSize(0.5);
         scene.add(transform_controls);
 
-        // disable orbit controls when using transform controls
-        transform_controls.addEventListener("dragging-changed", dragging_changed);
+        const selection_box = new SelectionBox(camera, scene);
+        const selection_helper = new SelectionHelper( selection_box, renderer, "select_box" );
+        selection_helper.isDown = false;
+        selection_helper.element.style.display = "none";
 
-        // update `points` when object is moved
-        transform_controls.addEventListener("objectChange", function (event) {
-            if (selected_object && selected_point_index !== -1) {
+        let is_selection_mode = false;
+        
+        let last_camera_position = camera.position.clone();
 
-                // update `points` with new position using stored index
-                points[selected_point_index] = [
-                    selected_object.position.x,
-                    selected_object.position.y,
-                    selected_object.position.z,
-                ];
-
-                // remove existing latent shape line segments
-                for (let child of scene.children) {
-                    if (child.name === "latent_shape" && child.type === "LineSegments") {
-                        scene.remove(child);
-                    }
-                }
-
-                // render latent shape line segments
-                add_line_segments_with_faces(points, faces, false);
-            }
-        });
-
-        window.addEventListener("resize", on_window_resize);
+        window.addEventListener("keydown", on_keydown);
+        window.addEventListener("keyup", on_keyup);
+        window.addEventListener("mousedown", on_mousedown);
+        // window.addEventListener("mouseup", on_mouseup);
         window.addEventListener("click", on_click);
 
-        function dragging_changed(event) {
-            orbit_controls.enabled = !event.value;
+        function on_keydown(event) {
+            if (event.key === "Shift") {
+                is_selection_mode = true;
+                orbit_controls.enabled = false;
+                document.body.style.cursor = "crosshair";
+                selection_helper.isDown = true;
+                selection_helper.element.style.display = "block";
+            }
+        }
+        
+        function on_keyup(event) {
+            if (event.key === "Shift") {
+                is_selection_mode = false;
+                orbit_controls.enabled = true;
+                document.body.style.cursor = "default";
+                selection_helper.isDown = false;
+                selection_helper.element.style.display = "none";
+            }
         }
 
         function on_click(event) {
-            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
-            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
 
-            raycaster.setFromCamera(mouse, camera);
+            const current_camera_position = camera.position.clone()
+            const has_camera_moved = (
+                Math.abs(current_camera_position.x - last_camera_position.x) < 0.001 ||
+                Math.abs(current_camera_position.y - last_camera_position.y) < 0.001 ||
+                Math.abs(current_camera_position.z - last_camera_position.z) < 0.001
+            )
+            // console.log(last_camera_position)
+            // console.log(current_camera_position)
+            // console.log(has_camera_moved)
+            
+            last_camera_position = current_camera_position;
+            
 
-            const intersects = raycaster.intersectObjects(scene.children, true);
-
-            for (let intersect of intersects) {
-                if (
-                    intersect.object.name === "latent_shape"
-                    && intersect.object.geometry.type === "SphereGeometry"
-                ) {
-                    if (intersect.object.material.color.getHex() === 0xff0000) {
-                        intersect.object.material.color.set(0x0000ff);
-
-                        // deselect the object
-                        if (selected_object === intersect.object) {
-                            transform_controls.detach();
-                            selected_object = null;
-                            selected_point_index = -1;
-                        }
-                    } else {
-                        intersect.object.material.color.set(0xff0000);
-
-                        // find the index of this point in the `points`
-                        const _selected_point_index = points.findIndex(point =>
-                            Math.abs(point[0] - intersect.object.position.x) < 0.001 &&
-                            Math.abs(point[1] - intersect.object.position.y) < 0.001 &&
-                            Math.abs(point[2] - intersect.object.position.z) < 0.001
-                        );
-
-                        // select the object and attach gizmo
-                        selected_object = intersect.object;
-                        selected_point_index = _selected_point_index;
-                        transform_controls.attach(selected_object);
-                        break;
+            if (!is_selection_mode && !has_camera_moved) {
+                for (const child of scene.children) {
+                    if (
+                        child.name === "latent_shape"
+                        && child.geometry.type === "SphereGeometry"
+                    ) {
+                        child.material.color.set(0x0000ff)
                     }
                 }
+                return
             }
         }
+
+        function on_mousedown(event) {
+            if (!is_selection_mode) {
+                return
+            }
+
+            selection_box.startPoint.set(
+                ( event.clientX / window.innerWidth ) * 2 - 1, 
+                -( event.clientY / window.innerHeight ) * 2 + 1,
+                0.5 );
+        }
+
+        // function on_mouseup(event) {
+        //     is_controls_active = false;
+        // }
+
+        // window.addEventListener( "pointermove", function ( event ) {
+        //     if ( event.key === "Shift" && helper.isDown ) {
+        //         console.log(helper.isDown)
+
+        //         for ( let i = 0; i < selection_box.collection.length; i ++ ) {
+        //             selection_box.collection[ i ].material.emissive.set( 0x000000 );
+        //         }
+
+        //         selection_box.endPoint.set(
+        //             ( event.clientX / window.innerWidth ) * 2 - 1,
+        //             - ( event.clientY / window.innerHeight ) * 2 + 1,
+        //             0.5 );
+
+        //         const allSelected = selection_box.select();
+
+        //         for ( let i = 0; i < allSelected.length; i ++ ) {
+
+        //             allSelected[ i ].material.emissive.set( 0xffffff );
+
+        //         }
+
+        //     }
+
+        // } );
+
+        window.addEventListener( "pointerup", function ( event ) {
+            if (!is_selection_mode ) {
+                for (const selected of selection_box.collection) {
+                    if (
+                        selected.name === "latent_shape"
+                        && selected.geometry.type === "SphereGeometry"
+                    ) {
+                        selected.material.color.set(0x0000ff)
+                    }
+                }
+                return;
+            }
+
+            selection_box.endPoint.set(
+                ( event.clientX / window.innerWidth ) * 2 - 1,
+                - ( event.clientY / window.innerHeight ) * 2 + 1,
+                0.5 );
+
+            const all_selected = selection_box.select();
+
+            for (const selected of all_selected) {
+                
+                if (
+                    selected.name === "latent_shape"
+                    && selected.geometry.type === "SphereGeometry"
+                ) {
+                    selected.material.color.set(0xff0000)
+                }
+            } 
+
+            // for ( let i = 0; i < all_selected.length; i ++ ) {
+
+
+
+                // all_selected[i].material.emissive.set( 0xff0000 );
+
+            // }
+
+        } );
+
+
+        // disable orbit controls when using transform controls
+        // transform_controls.addEventListener("dragging-changed", dragging_changed);
+
+        // // update `points` when object is moved
+        // transform_controls.addEventListener("objectChange", function (event) {
+        //     if (selected_object && selected_point_index !== -1) {
+
+        //         // update `points` with new position using stored index
+        //         points[selected_point_index] = [
+        //             selected_object.position.x,
+        //             selected_object.position.y,
+        //             selected_object.position.z,
+        //         ];
+
+        //         // remove existing latent shape line segments
+        //         for (let child of scene.children) {
+        //             if (child.name === "latent_shape" && child.type === "LineSegments") {
+        //                 scene.remove(child);
+        //             }
+        //         }
+
+        //         // render latent shape line segments
+        //         add_line_segments_with_faces(points, faces, false);
+        //     }
+        // });
+
+        // window.addEventListener("click", on_click);
+
+        window.addEventListener("resize", on_window_resize);
+
+        // function dragging_changed(event) {
+        //     orbit_controls.enabled = !event.value;
+        // }
+
+        // function on_click(event) {
+        //     mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+        //     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+        //     raycaster.setFromCamera(mouse, camera);
+
+        //     const intersects = raycaster.intersectObjects(scene.children, true);
+
+        //     for (let intersect of intersects) {
+        //         if (
+        //             intersect.object.name === "latent_shape"
+        //             && intersect.object.geometry.type === "SphereGeometry"
+        //         ) {
+        //             if (intersect.object.material.color.getHex() === 0xff0000) {
+        //                 intersect.object.material.color.set(0x0000ff);
+
+        //                 // deselect the object
+        //                 if (selected_object === intersect.object) {
+        //                     transform_controls.detach();
+        //                     selected_object = null;
+        //                     selected_point_index = -1;
+        //                 }
+        //             } else {
+        //                 intersect.object.material.color.set(0xff0000);
+
+        //                 // find the index of this point in the `points`
+        //                 const _selected_point_index = points.findIndex(point =>
+        //                     Math.abs(point[0] - intersect.object.position.x) < 0.001 &&
+        //                     Math.abs(point[1] - intersect.object.position.y) < 0.001 &&
+        //                     Math.abs(point[2] - intersect.object.position.z) < 0.001
+        //                 );
+
+        //                 // select the object and attach gizmo
+        //                 selected_object = intersect.object;
+        //                 selected_point_index = _selected_point_index;
+        //                 transform_controls.attach(selected_object);
+        //                 break;
+        //             }
+        //         }
+        //     }
+        // }
 
         function on_window_resize() {
             camera.aspect = window.innerWidth / window.innerHeight;
@@ -193,7 +368,7 @@
                     }
                 }
 
-                points = [];
+                latent_shape = [];
             }
 
             for (let child of children_to_remove) {
@@ -209,7 +384,7 @@
             sphere.name = "latent_shape";
 
             scene.add(sphere);
-            points.push([x, y, z]);
+            latent_shape.push([x, y, z]);
         }
 
         function add_line_segments_with_faces(latent_shape, faces, y_to_z=true) {
@@ -355,7 +530,7 @@
         }
 
         async function reconstruct() {
-            if (points.length === 0) {
+            if (latent_shape.length === 0) {
                 alert("There is no latent shape to reconstruct");
                 return;
             }
@@ -370,7 +545,7 @@
                 const response = await fetch("/api/reconstruct", {
                     method: "POST",
                     headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({latent_shapes: points})
+                    body: JSON.stringify({latent_shapes: latent_shape})
                 });
 
                 const result_data = await response.json();
