@@ -30,7 +30,7 @@
             height: 100vh;
         }
 
-        #load_button {
+        #load_random_shape_button {
             top: 10px;
             left: 10px;
         }
@@ -64,7 +64,7 @@
 </head>
 <body>
     <div id="container"></div>
-    <button id="load_button" onclick="load_random_shape()">Load Random Shape</button>
+    <button id="load_random_shape_button" onclick="load_random_shape()">Load Random Shape</button>
     <button id="reconstruct_button" onclick="reconstruct()">Reconstruct Shape</button>
 
     <script type="module">
@@ -75,11 +75,20 @@
         import { SelectionHelper } from "three/addons/interactive/SelectionHelper.js";
         import { BufferGeometryUtils } from "three/addons/utils/BufferGeometryUtils.js";
 
-        let latent_shape = [];
-        let faces = [];
-        let selected = [];
-        let selected_indices = [];
+        // strings
+        const LATENT_SHAPE = "latent_shape"
+        const LATENT_SHAPE_WIREFRAME = "latent_shape_wireframe"
+        const RECONSTRUCTED_MESH = "reconstructed_mesh"
+        const RECONSTRUCTED_MESH_WIREFRAME = "reconstructed_mesh_wireframe"
+        const RECONSTRUCTION_MODE = "reconstruction_mode"
+
+        let latent_shape = new THREE.Group();
+        let latent_shape_wireframe = new THREE.Mesh();
+        let latent_shape_faces = [];
+        
+        let reconstructed = new THREE.Group();
         let selected_group = new THREE.Group();
+        let selected_indices = [];
 
         let is_mouse_down = false;
         let is_selection_mode = false;
@@ -118,7 +127,9 @@
         scene.add(grid_helper);
         scene.add(axes_helper);
         scene.add(transform_controls);
-        scene.add(selected_group);
+
+        window.load_random_shape = load_random_shape;
+        window.reconstruct = reconstruct;
 
         window.addEventListener("keydown", on_keydown);
         window.addEventListener("keyup", on_keyup);
@@ -136,13 +147,11 @@
                 selection_helper.element.style.display = "block";
             } else if (event.key === "Escape") {
                 transform_controls.detach();
-                for (const point of selected) {
-                    point.material.color.set(0x0000ff);
+                for (const child of latent_shape.children) {
+                    if (child.name === LATENT_SHAPE) {
+                        child.material.color.set(0x0000ff);
+                    }
                 }
-                selected = [];
-                selected_indices = [];
-                selected_group = new THREE.Group();
-                scene.add(selected_group);
             }
         }
 
@@ -164,9 +173,10 @@
             }
 
             selection_box.startPoint.set(
-                ( event.clientX / window.innerWidth ) * 2 - 1,
-                -( event.clientY / window.innerHeight ) * 2 + 1,
-                0.5 );
+                (event.clientX / window.innerWidth) * 2 - 1,
+                -(event.clientY / window.innerHeight) * 2 + 1,
+                0.5 
+            );
         }
 
         function on_pointerup(event) {
@@ -175,48 +185,29 @@
             if (!is_selection_mode ) {
                 return;
             }
+            
+            console.log(latent_shape.children.length)
 
             selection_box.endPoint.set(
                 (event.clientX / window.innerWidth) * 2 - 1,
                 -(event.clientY / window.innerHeight) * 2 + 1,
                 0.5
             );
+            
+            const selections = selection_box.select();
+            console.log(latent_shape.children.length)
 
-            // transform_controls를 detach하는 대신 매트릭스 초기화
-            selected_group.matrix.identity();
-            selected_group.position.set(0, 0, 0);
-            selected_group.rotation.set(0, 0, 0);
-            selected_group.scale.set(1, 1, 1);
-            selected_group.updateMatrix();
+
 
             for (const selection of selection_box.select()) {
-                if (
-                    selection.name === "latent_shape"
-                    && selection.geometry.type === "SphereGeometry"
-                ) {
+                if (selection.name === LATENT_SHAPE) {
                     selection.material.color.set(0xff0000)
-                    if (!selected.includes(selection)) {
-                        let index = 0
-                        for (const point of latent_shape) {
-                            if (
-                                Math.abs(point.position.x - selection.position.x) < 0.001 &&
-                                Math.abs(point.position.y - selection.position.y) < 0.001 &&
-                                Math.abs(point.position.z - selection.position.z) < 0.001
-                            ) {
-                                break;
-                            }
-                            index += 1;
-                        }
-                        selected_indices.push(index);
-                        selected.push(selection);
-                        selected_group.add(selection);
-                    }
+                    selected_group.add(selection);
                 }
             }
-
-            if (selected.length > 0) {
-                transform_controls.attach(selected_group);
-            }
+            
+            scene.add(selected_group)
+            transform_controls.attach(selected_group);
         }
 
         function on_window_resize() {
@@ -227,121 +218,72 @@
 
         // eventlisteners of transform_controls
         transform_controls.addEventListener("objectChange", on_objectchange);
-        transform_controls.addEventListener("dragging-changed", dragging_changed);
+        transform_controls.addEventListener("dragging-changed", on_dragging_changed);
 
         function on_objectchange(event) {
-            if (selected.length > 0) {
+            const latent_shape_vertices = latent_shape.children.map(
+                child => [child.position.x, child.position.y, child.position.z]
+            )
 
-                // Update latent_shape array with current positions from all selected objects
-                for (let i = 0; i < selected.length; i++) {
-                    const selected_point = selected[i];
-                    const selected_index = selected_indices[i];
-
-                    latent_shape[selected_index] = selected_point;
-                }
-
-                for (let child of scene.children) {
-                    if (child.name === "latent_shape" && child.type === "LineSegments") {
-                        scene.remove(child);
-                    }
-                }
-
-                add_line_segments_with_faces(faces);
-            }
+            const latent_shape_mesh = create_mesh(
+                latent_shape_vertices, 
+                latent_shape_faces, 
+                new THREE.MeshBasicMaterial(),
+            )
+            
+            latent_shape_wireframe.geometry = create_wireframe(latent_shape_mesh.geometry).geometry
         }
 
-        function dragging_changed(event) {
-            // disable orbit controls when using transform controls
+        function on_dragging_changed(event) {
             orbit_controls.enabled = !event.value;
         }
 
         // utils
         function clear_scene(mode="") {
-            const children_to_remove = [];
-
-            // remove reconstructed mesh
-            if (mode === "reconstruct") {
-                for (let child of scene.children) {
-                    if (child.name === "reconstructed_mesh" || child.name === "reconstructed_wireframe") {
-                        children_to_remove.push(child);
-                    }
-                }
+            if (mode === RECONSTRUCTION_MODE) {
+                reconstructed.children = [];
+            } else {
+                latent_shape_wireframe.geometry = new THREE.BufferGeometry();
+                latent_shape.children = [];
+                reconstructed.children = [];
             }
-            // remove latent shape
-            else {
-                for (let child of scene.children) {
-                    if (child.name === "latent_shape" || child.name === "reconstructed_mesh" || child.name === "reconstructed_wireframe") {
-                        children_to_remove.push(child);
-                    }
-                }
-
-                latent_shape = [];
-            }
-
-            for (let child of children_to_remove) {
-                scene.remove(child);
-            }
-        }
-
-        function add_point(x, y, z) {
-            const geometry = new THREE.SphereGeometry(0.015);
-            const material = new THREE.MeshBasicMaterial({color: 0x0000ff});
-            const sphere = new THREE.Mesh(geometry, material);
-            sphere.position.set(x, y, z);
-            sphere.name = "latent_shape";
-
-            scene.add(sphere);
-            latent_shape.push(sphere);
-        }
-
-        function add_line_segments_with_faces(faces, y_to_z=false) {
-            const geometry = new THREE.BufferGeometry();
-            const positions = [];
-            for (let face of faces) {
-                for (let i = 0; i < face.length; i++) {
-                    const curr_index = face[i];
-                    const next_index = face[(i + 1) % face.length];
-
-                    const curr_vertex = latent_shape[curr_index].position
-                    const next_vertex = latent_shape[next_index].position
-
-                    if (y_to_z) {
-                        positions.push(curr_vertex.x, curr_vertex.z, curr_vertex.y);
-                        positions.push(next_vertex.x, next_vertex.z, next_vertex.y);
-                    } else {
-                        positions.push(curr_vertex.x, curr_vertex.y, curr_vertex.z);
-                        positions.push(next_vertex.x, next_vertex.y, next_vertex.z);
-                    }
-                }
-            }
-
-            geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-
-            const material = new THREE.LineBasicMaterial({
-                color: 0x000000,
-                linewidth: 1,
-                transparent: true,
-                opacity: 0.1
-            });
-
-            const wireframe = new THREE.LineSegments(geometry, material);
-            wireframe.name = "latent_shape";
-            scene.add(wireframe);
-
         }
 
         function add_reconstructed_mesh(vertices, faces) {
+            const reconstructed_mesh_material = new THREE.MeshBasicMaterial(
+                {
+                    color: 0xffffff,
+                    transparent: true,
+                    opacity: 0.6,
+                    wireframe: false,
+                    side: THREE.DoubleSide,
+                }
+            )
+
+            const reconstructed_mesh = create_mesh(vertices, faces, reconstructed_mesh_material)
+            const reconstructed_mesh_wireframe = create_wireframe(reconstructed_mesh.geometry)
+
+            reconstructed_mesh.name = RECONSTRUCTED_MESH;
+            reconstructed_mesh_wireframe.name = RECONSTRUCTED_MESH_WIREFRAME;
+
+            reconstructed.add(reconstructed_mesh)
+            reconstructed.add(reconstructed_mesh_wireframe)
+            
+            scene.add(reconstructed);
+        }
+
+        function create_mesh(vertices, faces, material) {
             const geometry = new THREE.BufferGeometry();
 
-            const vertexArray = new Float32Array(vertices.length * 3);
+            const vertices_array = new Float32Array(vertices.length * 3);
             for (let i = 0; i < vertices.length; i++) {
                 const vertex = vertices[i];
-                vertexArray[i * 3] = vertex[0];
-                vertexArray[i * 3 + 1] = vertex[2];
-                vertexArray[i * 3 + 2] = vertex[1];
+                vertices_array[i * 3] = vertex[0];
+                vertices_array[i * 3 + 1] = vertex[1];
+                vertices_array[i * 3 + 2] = vertex[2];
             }
 
-            geometry.setAttribute("position", new THREE.BufferAttribute(vertexArray, 3));
+            geometry.setAttribute("position", new THREE.BufferAttribute(vertices_array, 3));
 
             const indices = [];
             for (let face of faces) {
@@ -354,17 +296,13 @@
             }
 
             geometry.setIndex(indices);
-            geometry.computeVertexNormals();
+            
+            const mesh = new THREE.Mesh(geometry, material);
 
-            const mesh_material = new THREE.MeshBasicMaterial(
-                {
-                    color: 0xffffff,
-                    transparent: true,
-                    opacity: 0.6,
-                    wireframe: false,
-                    side: THREE.DoubleSide,
-                }
-            )
+            return mesh
+        }
+
+        function create_wireframe(geometry) {
 
             const mesh_wireframe_material = new THREE.MeshBasicMaterial(
                 {
@@ -376,67 +314,62 @@
                 }
             )
 
-            const mesh = new THREE.Mesh(geometry, mesh_material);
-            mesh.name = "reconstructed_mesh";
-            scene.add(mesh);
-
             const wireframe = new THREE.Mesh(geometry, mesh_wireframe_material);
-            wireframe.name = "reconstructed_wireframe";
-            scene.add(wireframe);
-
-        }
-
-        function render() {
-            orbit_controls.update();
-            renderer.render(scene, camera);
-        }
-
-        function animate() {
-            requestAnimationFrame(animate);
-            render();
+            return wireframe
         }
 
         async function load_random_shape() {
-            const load_button = document.getElementById("load_button");
+            const load_random_shape_button = document.getElementById("load_random_shape_button");
             const reconstruct_button = document.getElementById("reconstruct_button");
             const container = document.getElementById("container");
 
-            load_button.disabled = true;
+            load_random_shape_button.disabled = true;
             reconstruct_button.disabled = true;
             container.classList.add("loading");
 
             try {
                 const response = await fetch("/api/latent_shapes");
-                const response_data = await response.json();
+                const response_json = await response.json();
 
-                const latent_shape_data = response_data.latent_shape;
-                faces = response_data.faces;
+                latent_shape_faces = response_json.faces
 
-                // clear existing objects
                 clear_scene();
 
-                // render latent shape vertices
-                for (let vertex of latent_shape_data) {
-                    add_point(vertex[0], vertex[2], vertex[1]);
+                const latent_shape_vertices = []
+                for (let vertex of response_json.latent_shape) {
+                    latent_shape_vertices.push([vertex[0], vertex[2], vertex[1]])
+                    const sphere_geometry = new THREE.SphereGeometry(0.015);   
+                    const sphere_material = new THREE.MeshBasicMaterial({color: 0x0000ff});
+                    const sphere = new THREE.Mesh(sphere_geometry, sphere_material);
+                    sphere.position.set(vertex[0], vertex[2], vertex[1]);             
+                    sphere.name = LATENT_SHAPE;
+
+                    latent_shape.add(sphere)
                 }
 
-                // render latent shape line segments
-                add_line_segments_with_faces(faces, false);
+                
+                const latent_shape_mesh = create_mesh(latent_shape_vertices, latent_shape_faces, new THREE.MeshBasicMaterial())
+                latent_shape_wireframe = create_wireframe(latent_shape_mesh.geometry);
+                latent_shape_wireframe.name = LATENT_SHAPE_WIREFRAME
+                scene.add(latent_shape_wireframe)
+                // latent_shape.add(latent_shape_mesh_wireframe)
 
+                scene.add(latent_shape)
                 render();
 
             } catch (error) {
                 console.error("Error loading random shape:", error);
                 document.getElementById("result").innerHTML = error.message;
             } finally {
-                load_button.disabled = false;
+                load_random_shape_button.disabled = false;
                 reconstruct_button.disabled = false;
                 container.classList.remove("loading");
             }
         }
 
         async function reconstruct() {
-            if (latent_shape.length === 0) {
+
+            if (latent_shape.children.length === 0) {
                 alert("There is no latent shape to reconstruct");
                 return;
             }
@@ -449,22 +382,32 @@
 
             try {
 
-                const latent_shape_positions = [];
-                for (const point of latent_shape) {
-                    latent_shape_positions.push([point.position.x, point.position.z, point.position.y])
+                const latent_shape_vertices = [];
+                for (const child of latent_shape.children) {
+                    if (child.name === LATENT_SHAPE) {
+                        latent_shape_vertices.push([child.position.x, child.position.z, child.position.y])
+                    }
                 }
 
-                const response = await fetch("/api/reconstruct", {
-                    method: "POST",
-                    headers: {"Content-Type": "application/json"},
-                    body: JSON.stringify({latent_shapes: latent_shape_positions})
-                });
+                const response = await fetch(
+                    "/api/reconstruct", 
+                    {
+                        method: "POST",
+                        headers: {"Content-Type": "application/json"},
+                        body: JSON.stringify({latent_shapes: latent_shape_vertices})
+                    }
+                );
 
                 const result_data = await response.json();
+                const reconstructed_mesh_vertices = result_data.vertices.map(vertex => [vertex[0], vertex[2], vertex[1]])
 
-                if (response.ok && result_data.vertices && result_data.faces) {
-                    clear_scene("reconstruct");
-                    add_reconstructed_mesh(result_data.vertices, result_data.faces);
+                if (
+                    response.ok 
+                    && result_data.vertices 
+                    && result_data.faces
+                ) {
+                    clear_scene(RECONSTRUCTION_MODE);
+                    add_reconstructed_mesh(reconstructed_mesh_vertices, result_data.faces);
                 } else {
                     console.error("Reconstruction failed:", result_data.message);
                     alert("Reconstruction failed: " + result_data.message);
@@ -479,9 +422,15 @@
             }
         }
 
-        // 전역 함수로 노출
-        window.load_random_shape = load_random_shape;
-        window.reconstruct = reconstruct;
+        function render() {
+            orbit_controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            render();
+        }
 
         animate();
     </script>
