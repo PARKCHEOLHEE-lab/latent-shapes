@@ -75,12 +75,40 @@
         import { SelectionHelper } from "three/addons/interactive/SelectionHelper.js";
         import { BufferGeometryUtils } from "three/addons/utils/BufferGeometryUtils.js";
 
-        // strings
         const LATENT_SHAPE = "latent_shape"
         const LATENT_SHAPE_WIREFRAME = "latent_shape_wireframe"
         const RECONSTRUCTED_MESH = "reconstructed_mesh"
         const RECONSTRUCTED_MESH_WIREFRAME = "reconstructed_mesh_wireframe"
         const RECONSTRUCTION_MODE = "reconstruction_mode"
+
+        const LATENT_SHAPE_WIREFRAME_MATERIAL = new THREE.MeshBasicMaterial(
+            {
+                color: 0x808080,
+                transparent: true,
+                opacity: 0.2,
+                wireframe: true,
+                side: THREE.DoubleSide,
+            }
+        )
+
+        const LATENT_SHAPE_SPHERE_RAD = 0.012
+        const LATENT_SHAPE_SPHERE_COLOR = 0x0000ff
+        const LATENT_SHAPE_SPHERE_SELECTED_COLOR = 0xff0000
+        const LATENT_SHAPE_SPHERE_MATERIAL = new THREE.MeshBasicMaterial(
+            {
+                color: LATENT_SHAPE_SPHERE_COLOR,
+            }
+        )
+
+        const RECONSTRUCTED_MESH_MATERIAL = new THREE.MeshBasicMaterial(
+            {
+                color: 0xffffff,
+                transparent: true,
+                opacity: 0.6,
+                wireframe: false,
+                side: THREE.DoubleSide,
+            }
+        )
 
         let latent_shape = new THREE.Group();
         let latent_shape_wireframe = new THREE.Mesh();
@@ -97,7 +125,7 @@
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
 
-        const grid_helper = new THREE.GridHelper(20, 20);
+        const grid_helper = new THREE.GridHelper(10, 10);
         const axes_helper = new THREE.AxesHelper(5);
 
         // set renderer
@@ -149,7 +177,7 @@
                 transform_controls.detach();
                 for (const child of latent_shape.children) {
                     if (child.name === LATENT_SHAPE) {
-                        child.material.color.set(0x0000ff);
+                        child.material.color.set(LATENT_SHAPE_SPHERE_COLOR);
                     }
                 }
             }
@@ -194,20 +222,28 @@
                 0.5
             );
             
-            const selections = selection_box.select();
             console.log(latent_shape.children.length)
 
+            const selections = selection_box.select();
 
+            // Clear previous selections
+            selected_group.clear();
+            scene.remove(selected_group);
 
-            for (const selection of selection_box.select()) {
+            for (const selection of selections) {
                 if (selection.name === LATENT_SHAPE) {
-                    selection.material.color.set(0xff0000)
-                    selected_group.add(selection);
+                    // Create a copy of the selected sphere
+                    const copied = selection.clone();
+                    copied.material = copied.material.clone();
+                    copied.material.color.set(LATENT_SHAPE_SPHERE_SELECTED_COLOR);
+                    selected_group.add(copied);
                 }
             }
             
-            scene.add(selected_group)
-            transform_controls.attach(selected_group);
+            if (selected_group.children.length > 0) {
+                scene.add(selected_group)
+                transform_controls.attach(selected_group);
+            }
         }
 
         function on_window_resize() {
@@ -231,7 +267,11 @@
                 new THREE.MeshBasicMaterial(),
             )
             
-            latent_shape_wireframe.geometry = create_wireframe(latent_shape_mesh.geometry).geometry
+            latent_shape_wireframe.geometry = create_mesh(
+                latent_shape_vertices,
+                latent_shape_faces, 
+                LATENT_SHAPE_WIREFRAME_MATERIAL,
+            )
         }
 
         function on_dragging_changed(event) {
@@ -261,7 +301,7 @@
             )
 
             const reconstructed_mesh = create_mesh(vertices, faces, reconstructed_mesh_material)
-            const reconstructed_mesh_wireframe = create_wireframe(reconstructed_mesh.geometry)
+            const reconstructed_mesh_wireframe = create_mesh(vertices, faces, LATENT_SHAPE_WIREFRAME_MATERIAL)
 
             reconstructed_mesh.name = RECONSTRUCTED_MESH;
             reconstructed_mesh_wireframe.name = RECONSTRUCTED_MESH_WIREFRAME;
@@ -302,22 +342,6 @@
             return mesh
         }
 
-        function create_wireframe(geometry) {
-
-            const mesh_wireframe_material = new THREE.MeshBasicMaterial(
-                {
-                    color: 0x808080,
-                    transparent: true,
-                    opacity: 0.2,
-                    wireframe: true,
-                    side: THREE.DoubleSide,
-                }
-            )
-
-            const wireframe = new THREE.Mesh(geometry, mesh_wireframe_material);
-            return wireframe
-        }
-
         async function load_random_shape() {
             const load_random_shape_button = document.getElementById("load_random_shape_button");
             const reconstruct_button = document.getElementById("reconstruct_button");
@@ -337,23 +361,27 @@
 
                 const latent_shape_vertices = []
                 for (let vertex of response_json.latent_shape) {
-                    latent_shape_vertices.push([vertex[0], vertex[2], vertex[1]])
-                    const sphere_geometry = new THREE.SphereGeometry(0.015);   
-                    const sphere_material = new THREE.MeshBasicMaterial({color: 0x0000ff});
-                    const sphere = new THREE.Mesh(sphere_geometry, sphere_material);
-                    sphere.position.set(vertex[0], vertex[2], vertex[1]);             
+                    const vertex_ordered = [vertex[0], vertex[2], vertex[1]]
+                    const sphere = new THREE.Mesh(
+                        new THREE.SphereGeometry(LATENT_SHAPE_SPHERE_RAD), 
+                        LATENT_SHAPE_SPHERE_MATERIAL
+                    );
+                    
+                    latent_shape_vertices.push(vertex_ordered)
+                    sphere.position.set(...vertex_ordered);             
                     sphere.name = LATENT_SHAPE;
 
                     latent_shape.add(sphere)
                 }
-
                 
-                const latent_shape_mesh = create_mesh(latent_shape_vertices, latent_shape_faces, new THREE.MeshBasicMaterial())
-                latent_shape_wireframe = create_wireframe(latent_shape_mesh.geometry);
+                latent_shape_wireframe = create_mesh(
+                    latent_shape_vertices, 
+                    latent_shape_faces, 
+                    LATENT_SHAPE_WIREFRAME_MATERIAL,
+                )
+
                 latent_shape_wireframe.name = LATENT_SHAPE_WIREFRAME
                 scene.add(latent_shape_wireframe)
-                // latent_shape.add(latent_shape_mesh_wireframe)
-
                 scene.add(latent_shape)
                 render();
 
@@ -407,7 +435,15 @@
                     && result_data.faces
                 ) {
                     clear_scene(RECONSTRUCTION_MODE);
-                    add_reconstructed_mesh(reconstructed_mesh_vertices, result_data.faces);
+                    
+                    const reconstructed_mesh_wireframe = create_mesh(
+                        reconstructed_mesh_vertices, 
+                        result_data.faces,
+                        LATENT_SHAPE_WIREFRAME_MATERIAL
+                    )
+
+                    reconstructed.add(reconstructed_mesh_wireframe)
+                    scene.add(reconstructed);
                 } else {
                     console.error("Reconstruction failed:", result_data.message);
                     alert("Reconstruction failed: " + result_data.message);
