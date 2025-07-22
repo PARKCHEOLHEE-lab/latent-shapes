@@ -22,6 +22,7 @@ app = FastAPI(title="Latent Shapes Interpolator")
 
 configuration = Configuration()
 configuration.set_seed()
+configuration.RECONSTRUCTION_GRID_SIZE = 128
 
 sdf_dataset = SDFDataset.create_dataset(
     data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=10
