@@ -81,6 +81,10 @@
         const RECONSTRUCTED_MESH_WIREFRAME = "reconstructed_mesh_wireframe"
         const RECONSTRUCTION_MODE = "reconstruction_mode"
 
+        const LATENT_SHAPE_SPHERE_RAD = 0.008
+        const LATENT_SHAPE_SPHERE_COLOR = 0x0000ff
+        const LATENT_SHAPE_SPHERE_SELECTED_COLOR = 0xff0000
+
         const LATENT_SHAPE_WIREFRAME_MATERIAL = new THREE.MeshBasicMaterial(
             {
                 color: 0x0000ff,
@@ -101,9 +105,6 @@
             }
         )
 
-        const LATENT_SHAPE_SPHERE_RAD = 0.008
-        const LATENT_SHAPE_SPHERE_COLOR = 0x0000ff
-        const LATENT_SHAPE_SPHERE_SELECTED_COLOR = 0xff0000
         const LATENT_SHAPE_SPHERE_MATERIAL = new THREE.MeshBasicMaterial(
             {
                 color: LATENT_SHAPE_SPHERE_COLOR,
