@@ -227,7 +227,9 @@ class SDFDecoder(nn.Module):
             )
 
             if normalize:
-                vertices = vertices / vertices.max()
+                v_min = vertices.min()
+                v_max = vertices.max()
+                vertices = (vertices - v_min) / (v_max - v_min)
                 vertices = self.configuration.MIN_BOUND + vertices * (
                     self.configuration.MAX_BOUND - self.configuration.MIN_BOUND
                 )
