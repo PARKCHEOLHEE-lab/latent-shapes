@@ -4,5 +4,6 @@ data/
 *.npz
 runs/
 *.out
+*.obj
 
 task.md
