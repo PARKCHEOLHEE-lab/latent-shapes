@@ -22,7 +22,6 @@ app = FastAPI(title="Latent Shapes Interpolator")
 
 configuration = Configuration()
 configuration.set_seed()
-configuration.RECONSTRUCTION_GRID_SIZE = 128
 
 sdf_dataset = SDFDataset.create_dataset(
     data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=10
@@ -40,6 +39,8 @@ latent_shapes.load_state_dict(states["state_dict_latent_shapes"])
 
 class ReconstructRequest(BaseModel):
     latent_shapes: List[List[float]]
+    rescale: bool
+    resolution: int
 
 
 @app.get("/")
@@ -66,6 +67,9 @@ def get_random_latent_shape():
 @app.post("/api/reconstruct")
 def reconstruct(request: ReconstructRequest):
     try:
+        
+        configuration.RECONSTRUCTION_GRID_SIZE = request.resolution
+        
         latent_shapes_tensor = torch.tensor(request.latent_shapes).to(configuration.DEVICE)
 
         reconstruction_results = sdf_decoder.reconstruct(
@@ -75,7 +79,7 @@ def reconstruct(request: ReconstructRequest):
             check_watertight=False,
             map_z_to_y=False,
             add_noise=False,
-            rescale=True,
+            rescale=request.rescale,
         )
         
         if reconstruction_results[0] is None:
