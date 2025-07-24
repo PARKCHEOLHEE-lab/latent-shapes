@@ -138,12 +138,12 @@
         const material = new THREE.LineDashedMaterial({ 
             color: 0x808080,
             linewidth: 2,
-            dashSize: 0.01,     // 점선의 선 길이
-            gapSize: 0.01,     // 점선의 간격
+            dashSize: 0.01,
+            gapSize: 0.01,
         });
 
         box_geometry = new THREE.LineSegments(box_geometry, material);
-        box_geometry.computeLineDistances(); // dashline을 위해 필요
+        box_geometry.computeLineDistances();
 
         // create scene
         const scene = new THREE.Scene();
@@ -433,8 +433,6 @@
         }
 
         async function reconstruct() {
-
-
             if (latent_shape.length === 0) {
                 alert("There is no latent shape to reconstruct");
                 return;
