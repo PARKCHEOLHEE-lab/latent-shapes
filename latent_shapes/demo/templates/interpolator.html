@@ -120,6 +120,15 @@
             }
         )
 
+        const BOX_LINESEGMENTS_MATERIAL = new THREE.LineDashedMaterial(
+            { 
+                color: 0x808080,
+                linewidth: 2,
+                dashSize: 0.01,
+                gapSize: 0.01,
+            }
+        );
+
         let latent_shape = [];
         let latent_shape_faces = [];
         let latent_shape_wireframe = new THREE.Mesh();
@@ -135,14 +144,7 @@
         let box_geometry = new THREE.BoxGeometry(1, 1, 1)
         box_geometry = new THREE.EdgesGeometry(box_geometry);
 
-        const material = new THREE.LineDashedMaterial({ 
-            color: 0x808080,
-            linewidth: 2,
-            dashSize: 0.01,
-            gapSize: 0.01,
-        });
-
-        box_geometry = new THREE.LineSegments(box_geometry, material);
+        box_geometry = new THREE.LineSegments(box_geometry, BOX_LINESEGMENTS_MATERIAL);
         box_geometry.computeLineDistances();
 
         // create scene
