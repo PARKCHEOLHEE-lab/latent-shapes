@@ -6,8 +6,8 @@ import numpy as np
 
 class DataConfiguration:
     GRID_SIZE = 36
-    MIN_BOUND = -1.0
-    MAX_BOUND = 1.0
+    MIN_BOUND = -0.5
+    MAX_BOUND = 0.5
 
     N_SURFACE_SAMPLING_RATIO = 0.3
     N_VOLUME_SAMPLING_RATIO = 0.2
