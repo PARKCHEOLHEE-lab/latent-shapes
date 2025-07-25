@@ -17,7 +17,7 @@ from latent_shapes.src.data import SDFDataset
 from latent_shapes.src.model import SDFDecoder, LatentShapes
 
 
-app = FastAPI(title="Latent Shapes Interpolator")
+app = FastAPI(title="latent-shapes")
 
 
 configuration = Configuration()

@@ -168,6 +168,7 @@ class SDFDecoder(nn.Module):
         map_z_to_y: bool = True,
         add_noise: bool = False,
         rescale: bool = False,
+        centralize: bool = True,
         additional_title: Optional[Union[str, int]] = None,
     ):
         if add_noise:
@@ -238,8 +239,10 @@ class SDFDecoder(nn.Module):
                 assert vertices.max() <= self.configuration.MAX_BOUND
 
             mesh = trimesh.Trimesh(vertices, faces)
-            mesh.vertices -= mesh.vertices.mean(axis=0)
-
+            
+            if centralize:
+                mesh.vertices -= mesh.vertices.mean(axis=0)
+            
             if rescale:
                 latent_shape_bounds = (
                     torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0).cpu().numpy()

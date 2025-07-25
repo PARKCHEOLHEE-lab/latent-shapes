@@ -15,39 +15,156 @@
             margin: 0;
             padding: 0;
             overflow: hidden;
+            font-family: Arial, sans-serif;
         }
 
-        button {
-            position: absolute;
+        #sidebar {
+            position: fixed;
+            left: 20px;
+            top: 20px;
+            width: 280px;
+            max-height: calc(100vh - 40px);
+            background: rgba(248, 249, 250, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
             z-index: 1000;
-            padding: 10px;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+            padding: 15px;
             background: rgba(255, 255, 255, 0.8);
-            border: 1px solid #ccc;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .control-group h3 {
+            margin: 0 0 15px 0;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .control-item {
+            margin-bottom: 15px;
+        }
+
+        .control-item:last-child {
+            margin-bottom: 0;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            color: #555;
+        }
+
+        .slider-container {
+            position: relative;
+        }
+
+        .slider {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: #e0e0e0;
+            outline: none;
+            appearance: none;
+            margin-bottom: 8px;
+        }
+
+        .slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #007bff;
+            cursor: pointer;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .slider-value {
+            font-size: 12px;
+            color: #666;
+            text-align: center;
+        }
+
+        .checkbox-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .checkbox {
+            width: 16px;
+            height: 16px;
+            accent-color: #007bff;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover:not(:disabled) {
+            background: #0056b3;
+        }
+
+        .btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+
+        .btn.secondary {
+            background: #6c757d;
+        }
+
+        .btn.secondary:hover:not(:disabled) {
+            background: #545b62;
+        }
+
+        .btn.primary {
+            background: #007bff;
+        }
+
+        .btn.primary:hover:not(:disabled) {
+            background: #0056b3;
         }
 
         #container {
             width: 100vw;
             height: 100vh;
-        }
-
-        #load_random_shape_button {
-            top: 10px;
-            left: 10px;
-        }
-
-        #reconstruct_button {
-             top: 10px;
-              left: 160px;
-        }
-
-        #result {
-            position: absolute;
-            top: 60px;
-            left: 10px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.8);
-            padding: 10px;
-            border: 1px solid #ccc;
+            position: fixed;
+            left: 0;
+            top: 0;
         }
 
         .loading {
@@ -55,17 +172,70 @@
             pointer-events: none;
         }
 
+        .btn.loading {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
         .select_box {
             border: 1px solid #ccc;
             background-color: rgba(255, 255, 255, 0.2);
             position: fixed;
         }
+
+        #result {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            z-index: 1000;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            max-width: 300px;
+        }
     </style>
 </head>
 <body>
+    <div id="sidebar">
+        <div class="control-group">
+            <h3>Shape Controls</h3>
+            <div class="control-item">
+                <button id="load_random_shape_button" class="btn" onclick="load_random_shape()">Load Latent Shape</button>
+            </div>
+            <div class="control-item">
+                <button id="reconstruct_button" class="btn secondary" onclick="reconstruct()">Reconstruct</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>Settings</h3>
+            <div class="control-item">
+                <label for="resolution_slider">Resolution</label>
+                <div class="slider-container">
+                    <input type="range" id="resolution_slider" class="slider" min="32" max="256" value="64" step="8">
+                    <div class="slider-value" id="resolution_value">64</div>
+                </div>
+            </div>
+            <div class="control-item">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="rescale_checkbox" class="checkbox" checked>
+                    <label for="rescale_checkbox">Rescale</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>Instructions</h3>
+            <div style="font-size: 12px; color: #666; line-height: 1.4;">
+                <p><strong>Selection:</strong> Hold Shift + drag to select vertices</p>
+                <p><strong>Transform:</strong> Drag the gizmo to move selected vertices</p>
+                <p><strong>Clear:</strong> Press Escape to clear selection</p>
+            </div>
+        </div>
+    </div>
+    
     <div id="container"></div>
-    <button id="load_random_shape_button" onclick="load_random_shape()">Load Random Shape</button>
-    <button id="reconstruct_button" onclick="reconstruct()">Reconstruct Shape</button>
 
     <script type="module">
         import * as THREE from "three";
@@ -95,6 +265,12 @@
             }
         )
 
+        const LATENT_SHAPE_SPHERE_MATERIAL = new THREE.MeshBasicMaterial(
+            {
+                color: LATENT_SHAPE_SPHERE_COLOR,
+            }
+        )
+
         const RECONSTRUCTED_MESH_WIREFRAME_MATERIAL = new THREE.MeshBasicMaterial(
             {
                 color: 0x808080,
@@ -105,17 +281,11 @@
             }
         )
 
-        const LATENT_SHAPE_SPHERE_MATERIAL = new THREE.MeshBasicMaterial(
-            {
-                color: LATENT_SHAPE_SPHERE_COLOR,
-            }
-        )
-
         const RECONSTRUCTED_MESH_MATERIAL = new THREE.MeshBasicMaterial(
             {
-                color: 0xffffff,
+                color: 0x808080,
                 transparent: true,
-                opacity: 0.6,
+                opacity: 0.05,
                 wireframe: false,
                 side: THREE.DoubleSide,
             }
@@ -162,9 +332,9 @@
 
         // create camera
         const camera = new THREE.PerspectiveCamera(5, window.innerWidth/window.innerHeight, 0.1, 1000);
-        camera.position.x = 13.5;
+        camera.position.x = 18.5;
         camera.position.y = 5.5;
-        camera.position.z = -13.5;
+        camera.position.z = -18.5;
 
         const orbit_controls = new OrbitControls(camera, renderer.domElement);
 
@@ -186,6 +356,16 @@
 
         window.load_random_shape = load_random_shape;
         window.reconstruct = reconstruct;
+
+        // Initialize sidebar controls
+        const resolution_slider = document.getElementById("resolution_slider");
+        const resolution_value = document.getElementById("resolution_value");
+        const rescale_checkbox = document.getElementById("rescale_checkbox");
+
+        // Update resolution value display when slider changes
+        resolution_slider.addEventListener("input", function() {
+            resolution_value.textContent = this.value;
+        });
 
         window.addEventListener("keydown", on_keydown);
         window.addEventListener("keyup", on_keyup);
@@ -350,6 +530,7 @@
                 reconstructed.clear()
                 latent_shape_wireframe.geometry = new THREE.BufferGeometry();
             }
+            updateReconstructButton();
         }
 
         function create_mesh(vertices, faces, material) {
@@ -382,6 +563,17 @@
             return mesh
         }
 
+        function updateReconstructButton() {
+            const reconstruct_button = document.getElementById("reconstruct_button");
+            if (latent_shape.length > 0) {
+                reconstruct_button.classList.remove("secondary");
+                reconstruct_button.classList.add("primary");
+            } else {
+                reconstruct_button.classList.remove("primary");
+                reconstruct_button.classList.add("secondary");
+            }
+        }
+
         async function load_random_shape() {
             const load_random_shape_button = document.getElementById("load_random_shape_button");
             const reconstruct_button = document.getElementById("reconstruct_button");
@@ -389,7 +581,8 @@
 
             load_random_shape_button.disabled = true;
             reconstruct_button.disabled = true;
-            container.classList.add("loading");
+            load_random_shape_button.classList.add("loading");
+            reconstruct_button.classList.add("loading");
 
             try {
                 const response = await fetch("/api/latent_shapes");
@@ -431,7 +624,9 @@
             } finally {
                 load_random_shape_button.disabled = false;
                 reconstruct_button.disabled = false;
-                container.classList.remove("loading");
+                load_random_shape_button.classList.remove("loading");
+                reconstruct_button.classList.remove("loading");
+                updateReconstructButton();
             }
         }
 
@@ -441,11 +636,20 @@
                 return;
             }
 
+            const load_random_shape_button = document.getElementById("load_random_shape_button");
             const reconstruct_button = document.getElementById("reconstruct_button");
             const container = document.getElementById("container");
-
+            
+            // 원래 클래스 저장
+            const originalClass = reconstruct_button.classList.contains("primary") ? "primary" : "secondary";
+            
+            // 버튼 비활성화 및 스타일 변경
+            load_random_shape_button.disabled = true;
             reconstruct_button.disabled = true;
-            container.classList.add("loading");
+            load_random_shape_button.classList.add("loading");
+            reconstruct_button.classList.add("loading");
+            reconstruct_button.classList.remove(originalClass);
+            reconstruct_button.classList.add("disabled");  // disabled 스타일 적용
 
             try {
 
@@ -459,6 +663,11 @@
                 console.timeEnd("loading latentshape")
 
                 console.time("reconstructing with latentshape")
+                
+                // Get current control values
+                const current_resolution = parseInt(document.getElementById("resolution_slider").value);
+                const current_rescale = document.getElementById("rescale_checkbox").checked;
+
                 const response = await fetch(
                     "/api/reconstruct", 
                     {
@@ -467,8 +676,8 @@
                         body: JSON.stringify(
                             {
                                 latent_shapes: latent_shape_vertices,
-                                resolution: 64,
-                                rescale: true
+                                resolution: current_resolution,
+                                rescale: current_rescale,
                             }
                         )
                     }
@@ -485,12 +694,19 @@
                 ) {
                     clear_scene(RECONSTRUCTION_MODE);
                     
+                    const reconstructed_mesh = create_mesh(
+                        reconstructed_mesh_vertices, 
+                        result_data.faces,
+                        RECONSTRUCTED_MESH_MATERIAL
+                    )
+
                     const reconstructed_mesh_wireframe = create_mesh(
                         reconstructed_mesh_vertices, 
                         result_data.faces,
                         RECONSTRUCTED_MESH_WIREFRAME_MATERIAL
                     )
 
+                    reconstructed.add(reconstructed_mesh)
                     reconstructed.add(reconstructed_mesh_wireframe)
                     scene.add(reconstructed);
                 } else {
@@ -502,8 +718,13 @@
                 console.error("Error during reconstruction:", error);
                 alert("Error: " + error.message);
             } finally {
+                // 버튼 상태 복원
+                load_random_shape_button.disabled = false;
                 reconstruct_button.disabled = false;
-                container.classList.remove("loading");
+                load_random_shape_button.classList.remove("loading");
+                reconstruct_button.classList.remove("loading");
+                reconstruct_button.classList.remove("disabled");
+                reconstruct_button.classList.add(originalClass);
             }
         }
 
