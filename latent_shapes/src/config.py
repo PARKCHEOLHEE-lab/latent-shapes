@@ -37,6 +37,7 @@ class DataConfiguration:
     WATERTIGHT_RESOLUTION = 20000
 
     NUM_LATENT_POINTS = 26
+    LATENT_SHAPE_SUBDIVISION_COUNT = 2
 
 
 class ModelConfiguration:
