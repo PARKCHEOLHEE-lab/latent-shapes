@@ -28,10 +28,10 @@ class DataConfiguration:
     DATA_NAME = "models"
     DATA_NAME_OBJ = "model_normalized.obj"
 
-    SCALE_MATRIX = [
-        [0.95, 0.00, 0.00],
-        [0.00, 0.95, 0.00],
-        [0.00, 0.00, 1.00],
+    BOX_MESH_SCALE_MATRIX = [
+        [1.50, 0.00, 0.00],
+        [0.00, 1.50, 0.00],
+        [0.00, 0.00, 1.10],
     ]
 
     WATERTIGHT_RESOLUTION = 20000
