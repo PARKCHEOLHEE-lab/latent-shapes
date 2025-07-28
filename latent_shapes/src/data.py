@@ -1,5 +1,6 @@
 import os
 import sys
+import math
 import torch
 import random
 import shutil
@@ -69,47 +70,37 @@ class DataCreator:
 
     def _compute_latent_shape(self, mesh: trimesh.Trimesh) -> np.ndarray:
         box_mesh = trimesh.creation.box(bounds=mesh.bounds)
-        box_mesh.vertices = box_mesh.vertices @ self.configuration.SCALE_MATRIX
-        box_mesh_subdivided = box_mesh.subdivide()
+        box_mesh.vertices = box_mesh.vertices @ self.configuration.BOX_MESH_SCALE_MATRIX
 
-        (min_x, min_y, min_z), (max_x, max_y, max_z) = box_mesh.bounds
+        box_mesh_subdivided = box_mesh
+        for _ in range(self.configuration.LATENT_SHAPE_SUBDIVISION_COUNT):
+            box_mesh_subdivided = box_mesh_subdivided.subdivide()
+
+        vertices = box_mesh_subdivided.vertices
+        normals = box_mesh_subdivided.vertex_normals
+
+        (_, _, min_z), (_, _, max_z) = box_mesh.bounds
+
+        negative_z = np.array([0, 0, -1])
+        positive_z = np.array([0, 0, 1])
 
         nearest_indices = []
-        for i, vertex in enumerate(box_mesh_subdivided.vertices):
-            is_bottom_edge_midpoint = (
-                np.allclose(vertex, (np.array([min_x, min_y, min_z]) + np.array([max_x, min_y, min_z])) * 0.5)
-                or np.allclose(vertex, (np.array([min_x, max_y, min_z]) + np.array([max_x, max_y, min_z])) * 0.5)
-                or np.allclose(vertex, (np.array([min_x, min_y, min_z]) + np.array([max_x, max_y, min_z])) * 0.5)
-                or np.allclose(vertex, (np.array([min_x, min_y, min_z]) + np.array([min_x, max_y, min_z])) * 0.5)
-                or np.allclose(vertex, (np.array([max_x, min_y, min_z]) + np.array([max_x, max_y, min_z])) * 0.5)
-            )
+        for i, (vertex, normal) in enumerate(zip(vertices, normals)):
+            if math.isclose(vertex[-1], max_z):
+                normal = negative_z
+            elif math.isclose(vertex[-1], min_z):
+                normal = positive_z
+            else:
+                normal = -normal
 
-            is_top_edge_midpoint = (
-                np.allclose(vertex, (np.array([min_x, min_y, max_z]) + np.array([max_x, min_y, max_z])) * 0.5)
-                or np.allclose(vertex, (np.array([min_x, max_y, max_z]) + np.array([max_x, max_y, max_z])) * 0.5)
-                or np.allclose(vertex, (np.array([min_x, min_y, max_z]) + np.array([max_x, max_y, max_z])) * 0.5)
-                or np.allclose(vertex, (np.array([min_x, min_y, max_z]) + np.array([min_x, max_y, max_z])) * 0.5)
-                or np.allclose(vertex, (np.array([max_x, min_y, max_z]) + np.array([max_x, max_y, max_z])) * 0.5)
-            )
+            locations, *_ = mesh.ray.intersects_location(ray_origins=[vertex], ray_directions=[normal])
 
-            if is_bottom_edge_midpoint or is_top_edge_midpoint:
-                ray_origin = vertex
-                ray_direction = np.array([0, 0, 1])
+            # if the ray intersects the mesh, relocate the vertex to the intersection point
+            if len(locations) > 0:
+                new_vertex = locations[0]
+                box_mesh_subdivided.vertices[i] = new_vertex
 
-                # flip ray_direction
-                if is_top_edge_midpoint:
-                    ray_direction *= -1
-
-                locations, *_ = mesh.ray.intersects_location(ray_origins=[ray_origin], ray_directions=[ray_direction])
-
-                # if the ray intersects the mesh, relocate the vertex to the intersection point
-                if len(locations) > 0:
-                    new_vertex = locations[0]
-                    box_mesh_subdivided.vertices[i] = new_vertex
-                else:
-                    # if not, relocate the vertex to the nearest point on the mesh
-                    nearest_indices.append(i)
-
+            # if not, relocate the vertex to the nearest point on the mesh
             else:
                 nearest_indices.append(i)
 
