@@ -21,6 +21,12 @@ from latent_shapes.src.config import Configuration
 class DataCreator:
     def __init__(self, configuration: Configuration):
         self.configuration = configuration
+        self.volume_mesh = trimesh.creation.box(
+            bounds=[
+                [self.configuration.MIN_X_BOUND, self.configuration.MIN_Y_BOUND, self.configuration.MIN_Z_BOUND],
+                [self.configuration.MAX_X_BOUND, self.configuration.MAX_Y_BOUND, self.configuration.MAX_Z_BOUND],
+            ]
+        )
 
     def _map_mesh_z_to_y(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
         mapped_mesh = mesh.copy()
@@ -107,7 +113,7 @@ class DataCreator:
         nearest_vertices = mesh.nearest.on_surface(box_mesh_subdivided.vertices[nearest_indices])[0]
         box_mesh_subdivided.vertices[nearest_indices] = nearest_vertices
 
-        assert box_mesh_subdivided.vertices.shape == (self.configuration.NUM_LATENT_POINTS, 3)
+        assert box_mesh_subdivided.vertices.shape == (self.configuration.NUM_LATENT_SHAPE_VERTICES, 3)
 
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
 
@@ -115,21 +121,20 @@ class DataCreator:
         # sample surface points
         surface_points_sampled, _ = trimesh.sample.sample_surface(mesh, self.configuration.N_SURFACE_SAMPLING)
 
-        # sample surface points with noise
+        # sample surface points
         surface_points_noisy_sampled, _ = trimesh.sample.sample_surface(
             mesh, self.configuration.N_SURFACE_NOISY_SAMPLING
         )
 
+        # add noise
         surface_points_noisy_sampled += np.random.uniform(
             -self.configuration.SURFACE_NOISY_SAMPLING_RANGE,
             self.configuration.SURFACE_NOISY_SAMPLING_RANGE,
             size=surface_points_noisy_sampled.shape,
         )
-
+        
         # sample volume points
-        volume_points_sampled = np.random.uniform(
-            self.configuration.MIN_BOUND, self.configuration.MAX_BOUND, size=(self.configuration.N_VOLUME_SAMPLING, 3)
-        )
+        volume_points_sampled = trimesh.sample.volume_mesh(self.volume_mesh, count=self.configuration.N_VOLUME_SAMPLING)
 
         # check if the number of sampled points is same as N_TOTAL_SAMPLING
         assert (
@@ -137,6 +142,7 @@ class DataCreator:
             == self.configuration.N_TOTAL_SAMPLING
         )
 
+        # (N_TOTAL_SAMPLING, 3) shaped data
         return np.concatenate([surface_points_sampled, surface_points_noisy_sampled, volume_points_sampled])
 
     def _create_one(self, file: str, map_z_to_y: bool) -> bool:
@@ -390,4 +396,4 @@ class SDFDataset(Dataset):
 if __name__ == "__main__":
     configuration = Configuration()
     data_creator = DataCreator(configuration=configuration)
-    data_creator.create(map_z_to_y=True, use_multiprocessing=True, copy_obj=False, slicer=10)
+    data_creator.create(map_z_to_y=False, use_multiprocessing=True, copy_obj=False, slicer=1)
