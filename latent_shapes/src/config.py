@@ -1,20 +1,27 @@
 import os
 import torch
 import random
+import trimesh
 import numpy as np
 
 
 class DataConfiguration:
-    GRID_SIZE = 36
-    MIN_BOUND = -0.5
-    MAX_BOUND = 0.5
 
+    # bounds computed by `latent_shapes/src/bounds.py`
+    MIN_X_BOUND = -0.6149350000
+    MIN_Y_BOUND = -0.7674950000
+    MIN_Z_BOUND = -0.6662140000
+    MAX_X_BOUND = 0.6443440000
+    MAX_Y_BOUND = 0.7928820000
+    MAX_Z_BOUND = 0.5812350000
+    
     N_SURFACE_SAMPLING_RATIO = 0.3
     N_VOLUME_SAMPLING_RATIO = 0.2
     N_SURFACE_NOISY_SAMPLING_RATIO = 0.5
 
     SURFACE_NOISY_SAMPLING_RANGE = 0.10
 
+    GRID_SIZE = 36
     N_TOTAL_SAMPLING = GRID_SIZE**3
     N_SURFACE_SAMPLING = int(N_TOTAL_SAMPLING * N_SURFACE_SAMPLING_RATIO)
     N_SURFACE_NOISY_SAMPLING = int(N_TOTAL_SAMPLING * N_SURFACE_NOISY_SAMPLING_RATIO)
@@ -36,9 +43,12 @@ class DataConfiguration:
 
     WATERTIGHT_RESOLUTION = 20000
 
-    NUM_LATENT_POINTS = 26
     LATENT_SHAPE_SUBDIVISION_COUNT = 2
+    _box = trimesh.creation.box()
+    for _ in range(LATENT_SHAPE_SUBDIVISION_COUNT):
+        _box = _box.subdivide()
 
+    NUM_LATENT_SHAPE_VERTICES = _box.vertices.shape[0]
 
 class ModelConfiguration:
     EPOCHS = 100
