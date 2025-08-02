@@ -43,7 +43,7 @@ class SDFDecoder(nn.Module):
 
         self.configuration = configuration
 
-        self.first_block_in_features = (self.configuration.NUM_LATENT_POINTS + 1) * 3
+        self.first_block_in_features = (self.configuration.NUM_LATENT_SHAPE_VERTICES + 1) * 3
         if self.configuration.USE_CDIST:
             self.first_block_in_features += self.configuration.CDIST_K * 3
 
@@ -56,7 +56,7 @@ class SDFDecoder(nn.Module):
 
             self.xyz_projection = nn.Linear(self.xyz_projection_in_features, self.configuration.ATTENTION_DIM)
             self.latent_projection = nn.Linear(
-                self.configuration.NUM_LATENT_POINTS * 3, self.configuration.ATTENTION_DIM
+                self.configuration.NUM_LATENT_SHAPE_VERTICES * 3, self.configuration.ATTENTION_DIM
             )
 
             self.attention = nn.MultiheadAttention(
@@ -117,7 +117,7 @@ class SDFDecoder(nn.Module):
         x_ = torch.cat([xyz, latent_shape], dim=1)
 
         if self.configuration.USE_CDIST:
-            latent_shape_reshaped = latent_shape.reshape(-1, self.configuration.NUM_LATENT_POINTS, 3)
+            latent_shape_reshaped = latent_shape.reshape(-1, self.configuration.NUM_LATENT_SHAPE_VERTICES, 3)
 
             # distance between xyz and latent shape
             distance = torch.func.vmap(lambda x, y: torch.cdist(x.unsqueeze(0), y))(xyz, latent_shape_reshaped)
@@ -178,18 +178,18 @@ class SDFDecoder(nn.Module):
             )
 
         x = torch.linspace(
-            self.configuration.MIN_BOUND,
-            self.configuration.MAX_BOUND,
+            self.configuration.MIN_X_BOUND,
+            self.configuration.MAX_X_BOUND,
             self.configuration.RECONSTRUCTION_GRID_SIZE,
         )
         y = torch.linspace(
-            self.configuration.MIN_BOUND,
-            self.configuration.MAX_BOUND,
+            self.configuration.MIN_Y_BOUND,
+            self.configuration.MAX_Y_BOUND,
             self.configuration.RECONSTRUCTION_GRID_SIZE,
         )
         z = torch.linspace(
-            self.configuration.MIN_BOUND,
-            self.configuration.MAX_BOUND,
+            self.configuration.MIN_Z_BOUND,
+            self.configuration.MAX_Z_BOUND,
             self.configuration.RECONSTRUCTION_GRID_SIZE,
         )
         xx, yy, zz = torch.meshgrid(x, y, z, indexing="ij")
