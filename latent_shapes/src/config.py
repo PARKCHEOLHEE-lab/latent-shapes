@@ -6,7 +6,6 @@ import numpy as np
 
 
 class DataConfiguration:
-
     # bounds computed by `latent_shapes/src/bounds.py`
     MIN_X_BOUND = -0.6149350000
     MIN_Y_BOUND = -0.7674950000
@@ -14,7 +13,7 @@ class DataConfiguration:
     MAX_X_BOUND = 0.6443440000
     MAX_Y_BOUND = 0.7928820000
     MAX_Z_BOUND = 0.5812350000
-    
+
     N_SURFACE_SAMPLING_RATIO = 0.3
     N_VOLUME_SAMPLING_RATIO = 0.2
     N_SURFACE_NOISY_SAMPLING_RATIO = 0.5
@@ -51,6 +50,7 @@ class DataConfiguration:
         _box = _box.subdivide()
 
     NUM_LATENT_SHAPE_VERTICES = _box.vertices.shape[0]
+
 
 class ModelConfiguration:
     EPOCHS = 1000

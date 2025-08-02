@@ -132,7 +132,7 @@ class DataCreator:
             self.configuration.SURFACE_NOISY_SAMPLING_RANGE,
             size=surface_points_noisy_sampled.shape,
         )
-        
+
         # sample volume points
         volume_points_sampled = trimesh.sample.volume_mesh(self.volume_mesh, count=self.configuration.N_VOLUME_SAMPLING)
 

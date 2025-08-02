@@ -67,9 +67,8 @@ def get_random_latent_shape():
 @app.post("/api/reconstruct")
 def reconstruct(request: ReconstructRequest):
     try:
-        
         configuration.RECONSTRUCTION_GRID_SIZE = request.resolution
-        
+
         latent_shapes_tensor = torch.tensor(request.latent_shapes).to(configuration.DEVICE)
 
         reconstruction_results = sdf_decoder.reconstruct(
@@ -81,7 +80,7 @@ def reconstruct(request: ReconstructRequest):
             add_noise=False,
             rescale=request.rescale,
         )
-        
+
         if reconstruction_results[0] is None:
             raise HTTPException(status_code=400, detail="Reconstruction failed")
 
