@@ -228,15 +228,15 @@ class SDFDecoder(nn.Module):
             )
 
             if normalize:
-                v_min = vertices.min()
-                v_max = vertices.max()
+                latent_shape_bounds = torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0)
+                latent_shape_bounds = latent_shape_bounds.cpu().numpy()
+                
+                v_min = vertices.min(axis=0)
+                v_max = vertices.max(axis=0)
                 vertices = (vertices - v_min) / (v_max - v_min)
-                vertices = self.configuration.MIN_BOUND + vertices * (
-                    self.configuration.MAX_BOUND - self.configuration.MIN_BOUND
+                vertices = latent_shape_bounds[0] + vertices * (
+                    latent_shape_bounds[1] - latent_shape_bounds[0]
                 )
-
-                assert vertices.min() >= self.configuration.MIN_BOUND
-                assert vertices.max() <= self.configuration.MAX_BOUND
 
             mesh = trimesh.Trimesh(vertices, faces)
             
@@ -244,9 +244,8 @@ class SDFDecoder(nn.Module):
                 mesh.vertices -= mesh.vertices.mean(axis=0)
             
             if rescale:
-                latent_shape_bounds = (
-                    torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0).cpu().numpy()
-                )
+                latent_shape_bounds = torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0)
+                latent_shape_bounds = latent_shape_bounds.cpu().numpy()
 
                 # compute scale factor
                 mesh_size = mesh.bounds[1] - mesh.bounds[0]
