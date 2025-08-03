@@ -268,7 +268,7 @@ class Trainer:
 
         shutil.copytree(
             src=max(sys.path, key=lambda f: f.split("/")[-1] == "src"),
-            dst=self.log_dir,
+            dst=os.path.join(self.log_dir, "src"),
             dirs_exist_ok=True,
             ignore=lambda _, files: [f for f in files if f == "__pycache__"],
         )
