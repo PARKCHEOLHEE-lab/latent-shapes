@@ -1,14 +1,10 @@
 import os
-import sys
 import trimesh
 import traceback
 import numpy as np
 import multiprocessing
 
-if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
-from latent_shapes.src.config import Configuration
+from .config import Configuration
 
 
 def process_obj_file(file_path: str):

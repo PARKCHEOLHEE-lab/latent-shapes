@@ -1,5 +1,4 @@
 import os
-import sys
 import math
 import torch
 import random
@@ -12,10 +11,7 @@ import point_cloud_utils as pcu
 from typing import Dict, List, Tuple, Optional
 from torch.utils.data import DataLoader, Dataset, Subset
 
-if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
-from latent_shapes.src.config import Configuration
+from .config import Configuration
 
 
 class DataCreator:

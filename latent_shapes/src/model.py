@@ -1,5 +1,4 @@
 import os
-import sys
 import torch
 import skimage
 import trimesh
@@ -9,10 +8,7 @@ import point_cloud_utils as pcu
 from tqdm import tqdm
 from typing import Optional, List, Union
 
-if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
-from latent_shapes.src.config import Configuration
+from .config import Configuration
 
 
 class LatentShapes(nn.Module):

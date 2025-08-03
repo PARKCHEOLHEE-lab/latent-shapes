@@ -7,15 +7,12 @@ import datetime
 
 from tqdm import tqdm
 from typing import Tuple, Optional
-from torch.utils.tensorboard import SummaryWriter
 from torch.optim import lr_scheduler
+from torch.utils.tensorboard import SummaryWriter
 
-if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
-from latent_shapes.src.config import Configuration
-from latent_shapes.src.data import SDFDataset
-from latent_shapes.src.model import SDFDecoder, LatentShapes
+from .config import Configuration
+from .data import SDFDataset
+from .model import SDFDecoder, LatentShapes
 
 
 class Trainer:
