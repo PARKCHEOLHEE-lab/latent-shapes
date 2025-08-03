@@ -27,8 +27,8 @@ class DataConfiguration:
     N_VOLUME_SAMPLING = N_TOTAL_SAMPLING - N_SURFACE_SAMPLING - N_SURFACE_NOISY_SAMPLING
 
     assert N_SURFACE_SAMPLING + N_SURFACE_NOISY_SAMPLING + N_VOLUME_SAMPLING == N_TOTAL_SAMPLING
-    
-    SLICER = 100
+
+    SLICER = 50
 
     DATA_DIR = os.path.abspath(os.path.join(__file__, "../../data"))
     DATA_PATH = os.path.join(DATA_DIR, "03001627")
@@ -53,7 +53,7 @@ class DataConfiguration:
 
 
 class ModelConfiguration:
-    EPOCHS = 1000
+    EPOCHS = 100
     SEED = 777
 
     BATCH_SIZE = 128
