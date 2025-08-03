@@ -45,11 +45,11 @@ class DataConfiguration:
     WATERTIGHT_RESOLUTION = 20000
 
     LATENT_SHAPE_SUBDIVISION_COUNT = 2
-    _box = trimesh.creation.box()
+    BOX = trimesh.creation.box()
     for _ in range(LATENT_SHAPE_SUBDIVISION_COUNT):
-        _box = _box.subdivide()
+        BOX = BOX.subdivide()
 
-    NUM_LATENT_SHAPE_VERTICES = _box.vertices.shape[0]
+    NUM_LATENT_SHAPE_VERTICES = BOX.vertices.shape[0]
 
 
 class ModelConfiguration:
