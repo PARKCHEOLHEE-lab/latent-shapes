@@ -20,6 +20,8 @@ from latent_shapes.src.model import SDFDecoder, LatentShapes
 
 
 class Trainer:
+    """trainer for the decoder, and the latent shape"""
+
     def __init__(
         self,
         latent_shapes: LatentShapes,
@@ -62,7 +64,7 @@ class Trainer:
             patience=self.configuration.SCHEDULER_PATIENCE,
         )
 
-        # default states
+        # initialize states
         self.states = {
             "epoch": 0,
             "loss_mean": torch.inf,
@@ -107,8 +109,12 @@ class Trainer:
         return self.summary_writer.log_dir
 
     @torch.no_grad()
-    def _evaluate_each_epoch(self) -> Tuple[float, float, float]:
-        """ """
+    def _evaluate_each_epoch(self) -> Tuple[float, float]:
+        """evaluation method for each epoch
+
+        Returns:
+            Tuple[float, float]: validaion loss for the decoder, and the latent shape
+        """
 
         # set to evaluation mode
         self.sdf_decoder.eval()
@@ -116,9 +122,11 @@ class Trainer:
         losses_val = []
         losses_shape_val = []
 
-        for _, data in tqdm(
+        iterator_val = tqdm(
             enumerate(self.sdf_dataset.validation_dataloader), total=len(self.sdf_dataset.validation_dataloader)
-        ):
+        )
+
+        for _, data in iterator_val:
             xyz_batch, sdf_batch, class_number_batch, latent_shapes_batch_r, _ = data
 
             latent_shapes_batch = self.latent_shapes(class_number_batch)
@@ -133,28 +141,33 @@ class Trainer:
 
             loss = torch.nn.functional.l1_loss(sdf_preds, sdf_batch.unsqueeze(-1))
             loss_shape = torch.nn.functional.mse_loss(self.latent_shapes(class_number_batch), latent_shapes_batch_r)
-            # 배치단위로 계산하는게 의도에 맞게 작동하는지 확인 필요할듯?
 
             losses_val.append(loss.item())
             losses_shape_val.append(loss_shape.item())
 
-        loss_mean_val = torch.tensor(losses_val).mean()
-        losses_shape_mean_val = torch.tensor(losses_shape_val).mean()
+        loss_mean_val = torch.tensor(losses_val).mean().item()
+        losses_shape_mean_val = torch.tensor(losses_shape_val).mean().item()
 
         # re-set to training mode
         self.sdf_decoder.train()
 
         return loss_mean_val, losses_shape_mean_val
 
-    def _train_each_epoch(self) -> Tuple[float, float, float]:
-        """ """
+    def _train_each_epoch(self) -> Tuple[float, float]:
+        """training method for each epoch
+
+        Returns:
+            Tuple[float, float]: training loss for the decoder, and the latent shape
+        """
 
         losses = []
         losses_shape = []
 
-        for batch_index, data in tqdm(
+        iterator_train = tqdm(
             enumerate(self.sdf_dataset.train_dataloader), total=len(self.sdf_dataset.train_dataloader)
-        ):
+        )
+
+        for batch_index, data in iterator_train:
             xyz_batch, sdf_batch, class_number_batch, latent_shapes_batch_r, _ = data
 
             latent_shapes_batch = self.latent_shapes(class_number_batch)
@@ -186,12 +199,24 @@ class Trainer:
             losses.append(loss.item() * self.configuration.ACCUMULATION_STEPS)
             losses_shape.append(loss_shape.item())
 
-        loss_mean = torch.tensor(losses).mean()
-        loss_shape_mean = torch.tensor(losses_shape).mean()
+        loss_mean = torch.tensor(losses).mean().item()
+        loss_shape_mean = torch.tensor(losses_shape).mean().item()
 
         return loss_mean, loss_shape_mean
 
-    def _save_state_dicts(self, epoch, loss_mean, loss_mean_val, loss_mean_weighted_sum, loss_shape_mean):
+    def _save_state_dicts(
+        self, epoch: int, loss_mean: float, loss_mean_val: float, loss_mean_weighted_sum: float, loss_shape_mean: float
+    ) -> None:
+        """save state dicts if improved
+
+        Args:
+            epoch (int): current epoch.
+            loss_mean (float): mean training loss for the decoder
+            loss_mean_val (float): mean validation loss for the decoder
+            loss_mean_weighted_sum (float): weighted sum of training and validation losses
+            loss_shape_mean (float): mean training loss for the latent shape
+        """
+
         if loss_shape_mean < self.states["loss_shape_mean"]:
             print(
                 f"""
@@ -242,10 +267,20 @@ class Trainer:
             self.states.update({"epoch": epoch})
             torch.save(self.states, os.path.join(self.log_dir, self.configuration.SAVE_NAME))
 
+    def _copy_srcs(self) -> None:
+        """copy used srcs"""
+
+        shutil.copytree(
+            src=max(sys.path, key=lambda f: f.split("/")[-1] == "src"),
+            dst=self.log_dir,
+            dirs_exist_ok=True,
+            ignore=lambda _, files: [f for f in files if f == "__pycache__"],
+        )
+
     def train(self) -> None:
-        # copy used configuration
-        config_path = inspect.getfile(Configuration)
-        shutil.copy(config_path, os.path.join(self.log_dir, os.path.basename(config_path)))
+        """main method"""
+
+        self._copy_srcs()
 
         epoch_start = self.states["epoch"] + 1
         epoch_end = self.configuration.EPOCHS + 1
@@ -270,12 +305,10 @@ class Trainer:
 
             self._save_state_dicts(epoch, loss_mean, loss_mean_val, loss_mean_weighted_sum, loss_shape_mean)
 
+            # reconstruction with loaded state dicts
             if epoch == 1 or epoch % self.configuration.RECONSTRUCTION_INTERVAL == 0:
-                _latent_shapes = LatentShapes(
-                    latent_shapes=self.sdf_dataset.latent_shapes,
-                    noise_min=-self.configuration.LATENT_SHAPES_NOISE_RECONSTRUCTION,
-                    noise_max=self.configuration.LATENT_SHAPES_NOISE_RECONSTRUCTION,
-                )
+                _latent_shapes = LatentShapes(latent_shapes=self.sdf_dataset.latent_shapes)
+
                 _sdf_decoder = SDFDecoder(
                     configuration=self.configuration,
                 )
@@ -288,36 +321,13 @@ class Trainer:
                     torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
                 )
 
-                latent_shapes_batch = self.sdf_dataset.latent_shapes[
-                    torch.randperm(self.sdf_dataset.num_classes)[: self.configuration.RECONSTRUCTION_COUNT]
-                ]
-
-                _sdf_decoder.reconstruct(
-                    latent_shapes_batch,
-                    save_path=self.log_dir,
-                    normalize=True,
-                    check_watertight=False,
-                    add_noise=True,
-                    rescale=True,
-                    additional_title=f"loaded_data_wn",
-                )
-
-                _sdf_decoder.reconstruct(
-                    latent_shapes_batch,
-                    save_path=self.log_dir,
-                    normalize=True,
-                    check_watertight=False,
-                    add_noise=False,
-                    rescale=True,
-                    additional_title=f"loaded_data",
-                )
-
                 _sdf_decoder.reconstruct(
                     latent_shapes_batch_embedding,
                     save_path=self.log_dir,
                     normalize=True,
                     check_watertight=False,
                     add_noise=False,
-                    rescale=True,
+                    rescale=False,
+                    map_z_to_y=False,
                     additional_title=f"loaded_emb",
                 )
