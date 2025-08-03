@@ -1,20 +1,19 @@
 import os
 import sys
-
-if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
-    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
-
 import torch
 import uvicorn
 
+from typing import List
+from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
-from pydantic import BaseModel
-from typing import List
 
-from latent_shapes.src.config import Configuration
-from latent_shapes.src.data import SDFDataset
-from latent_shapes.src.model import SDFDecoder, LatentShapes
+basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/08-02-2025__17-36-23/"))
+if basedir not in sys.path:
+    sys.path.append(basedir)
+
+from src.config import Configuration
+from src.model import SDFDecoder, LatentShapes
 
 
 app = FastAPI(title="latent-shapes")
@@ -23,23 +22,20 @@ app = FastAPI(title="latent-shapes")
 configuration = Configuration()
 configuration.set_seed()
 
-sdf_dataset = SDFDataset.create_dataset(
-    data_dir=configuration.DATA_PATH_PROCESSED, configuration=configuration, data_slicer=10
-)
+states = torch.load(os.path.join(basedir, "states.pth"))
 
-latent_shapes = LatentShapes(latent_shapes=sdf_dataset.latent_shapes, noise_min=-0.1, noise_max=0.1)
+latent_shapes = LatentShapes(latent_shapes=torch.rand(size=(configuration.SLICER, configuration.NUM_LATENT_SHAPE_VERTICES, 3)))
+latent_shapes.load_state_dict(states["state_dict_latent_shapes"])
 
 sdf_decoder = SDFDecoder(configuration=configuration)
-
-states = torch.load(os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/07-13-2025__13-15-20/states.pth")))
-
 sdf_decoder.load_state_dict(states["state_dict_decoder"])
-latent_shapes.load_state_dict(states["state_dict_latent_shapes"])
 
 
 class ReconstructRequest(BaseModel):
     latent_shapes: List[List[float]]
     rescale: bool
+    normalize: bool
+    map_z_to_y: bool
     resolution: int
 
 
@@ -57,9 +53,12 @@ def interpolator():
 
 @app.get("/api/latent_shapes")
 def get_random_latent_shape():
-    random_index = torch.randint(0, sdf_dataset.latent_shapes.shape[0], (1,))
+    random_index = torch.randint(0, configuration.SLICER, (1,))
     latent_shape = latent_shapes(random_index).squeeze(0)
-    faces = sdf_dataset.faces[random_index].squeeze(0)
+    faces = configuration.BOX.faces
+    
+    # map y to z to match the loaded latent shape into the xzy system
+    latent_shape[:, [1, 2]] = latent_shape[:, [2, 1]]
 
     return {"latent_shape": latent_shape.tolist(), "faces": faces.tolist()}
 
@@ -71,14 +70,18 @@ def reconstruct(request: ReconstructRequest):
 
         latent_shapes_tensor = torch.tensor(request.latent_shapes).to(configuration.DEVICE)
 
+        # map z to y to match the loaded latent shape into the xyz system
+        latent_shapes_tensor[:, [1, 2]] = latent_shapes_tensor[:, [2, 1]]
+
         reconstruction_results = sdf_decoder.reconstruct(
             latent_shapes=latent_shapes_tensor.unsqueeze(0),
             save_path=os.path.join(os.path.dirname(__file__)),
-            normalize=True,
+            normalize=request.normalize,
             check_watertight=False,
-            map_z_to_y=False,
+            map_z_to_y=request.map_z_to_y,
             add_noise=False,
             rescale=request.rescale,
+            # centraize=False
         )
 
         if reconstruction_results[0] is None:
@@ -97,4 +100,4 @@ def reconstruct(request: ReconstructRequest):
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=7777)
+    uvicorn.run("app:app", host="0.0.0.0", port=7777, reload=True)

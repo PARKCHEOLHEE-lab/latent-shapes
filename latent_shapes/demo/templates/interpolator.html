@@ -223,6 +223,18 @@
                     <label for="rescale_checkbox">Rescale</label>
                 </div>
             </div>
+            <div class="control-item">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="normalize_checkbox" class="checkbox" checked>
+                    <label for="normalize_checkbox">Normalize</label>
+                </div>
+            </div>
+            <div class="control-item">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="map_z_to_y_checkbox" class="checkbox" checked>
+                    <label for="map_z_to_y_checkbox">Map Z to Y</label>
+                </div>
+            </div>
         </div>
 
         <div class="control-group">
@@ -257,7 +269,7 @@
 
         const LATENT_SHAPE_WIREFRAME_MATERIAL = new THREE.MeshBasicMaterial(
             {
-                color: 0x0000ff,
+                color: 0x808080,
                 transparent: true,
                 opacity: 0.1,
                 wireframe: true,
@@ -273,7 +285,7 @@
 
         const RECONSTRUCTED_MESH_WIREFRAME_MATERIAL = new THREE.MeshBasicMaterial(
             {
-                color: 0x808080,
+                color: 0x242424,
                 transparent: true,
                 opacity: 0.2,
                 wireframe: true,
@@ -361,6 +373,7 @@
         const resolution_slider = document.getElementById("resolution_slider");
         const resolution_value = document.getElementById("resolution_value");
         const rescale_checkbox = document.getElementById("rescale_checkbox");
+        const normalize_checkbox = document.getElementById("normalize_checkbox");
 
         // Update resolution value display when slider changes
         resolution_slider.addEventListener("input", function() {
@@ -640,16 +653,14 @@
             const reconstruct_button = document.getElementById("reconstruct_button");
             const container = document.getElementById("container");
 
-            // 원래 클래스 저장
             const originalClass = reconstruct_button.classList.contains("primary") ? "primary" : "secondary";
 
-            // 버튼 비활성화 및 스타일 변경
             load_random_shape_button.disabled = true;
             reconstruct_button.disabled = true;
             load_random_shape_button.classList.add("loading");
             reconstruct_button.classList.add("loading");
             reconstruct_button.classList.remove(originalClass);
-            reconstruct_button.classList.add("disabled");  // disabled 스타일 적용
+            reconstruct_button.classList.add("disabled");
 
             try {
 
@@ -667,6 +678,8 @@
                 // Get current control values
                 const current_resolution = parseInt(document.getElementById("resolution_slider").value);
                 const current_rescale = document.getElementById("rescale_checkbox").checked;
+                const current_normalize = document.getElementById("normalize_checkbox").checked;
+                const current_map_z_to_y = document.getElementById("map_z_to_y_checkbox").checked;
 
                 const response = await fetch(
                     "/api/reconstruct",
@@ -678,6 +691,8 @@
                                 latent_shapes: latent_shape_vertices,
                                 resolution: current_resolution,
                                 rescale: current_rescale,
+                                normalize: current_normalize,
+                                map_z_to_y: current_map_z_to_y,
                             }
                         )
                     }
@@ -685,7 +700,6 @@
 
                 const result_data = await response.json();
                 console.timeEnd("reconstructing with latentshape")
-                const reconstructed_mesh_vertices = result_data.vertices.map(vertex => [vertex[0], vertex[2], vertex[1]])
 
                 if (
                     response.ok
@@ -693,6 +707,8 @@
                     && result_data.faces
                 ) {
                     clear_scene(RECONSTRUCTION_MODE);
+
+                    const reconstructed_mesh_vertices = result_data.vertices.map(vertex => [vertex[0], vertex[2], vertex[1]])
 
                     const reconstructed_mesh = create_mesh(
                         reconstructed_mesh_vertices,
