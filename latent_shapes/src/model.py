@@ -164,7 +164,6 @@ class SDFDecoder(nn.Module):
         map_z_to_y: bool = True,
         add_noise: bool = False,
         rescale: bool = False,
-        centralize: bool = True,
         additional_title: Optional[Union[str, int]] = None,
     ):
         if add_noise:
@@ -223,19 +222,18 @@ class SDFDecoder(nn.Module):
                 sdf_grid, level=self.configuration.MARCHING_CUBES_LEVEL
             )
 
+            mesh = trimesh.Trimesh(vertices, faces)
+
             if normalize:
                 latent_shape_bounds = torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0)
                 latent_shape_bounds = latent_shape_bounds.cpu().numpy()
 
-                v_min = vertices.min(axis=0)
-                v_max = vertices.max(axis=0)
-                vertices = (vertices - v_min) / (v_max - v_min)
-                vertices = latent_shape_bounds[0] + vertices * (latent_shape_bounds[1] - latent_shape_bounds[0])
-
-            mesh = trimesh.Trimesh(vertices, faces)
-
-            if centralize:
-                mesh.vertices -= mesh.vertices.mean(axis=0)
+                v_min = mesh.vertices.min(axis=0)
+                v_max = mesh.vertices.max(axis=0)
+                mesh.vertices = (mesh.vertices - v_min) / (v_max - v_min)
+                mesh.vertices = latent_shape_bounds[0] + mesh.vertices * (latent_shape_bounds[1] - latent_shape_bounds[0])
+                translation = (latent_shape_bounds * 0.5).sum(axis=0) - (mesh.bounds * 0.5).sum(axis=0)
+                mesh.vertices = mesh.vertices + translation
 
             if rescale:
                 latent_shape_bounds = torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0)
