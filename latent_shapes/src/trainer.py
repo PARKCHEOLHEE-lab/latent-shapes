@@ -3,7 +3,6 @@ import sys
 import pytz
 import torch
 import shutil
-import inspect
 import datetime
 
 from tqdm import tqdm
@@ -329,5 +328,5 @@ class Trainer:
                     add_noise=False,
                     rescale=False,
                     map_z_to_y=False,
-                    additional_title=f"loaded_emb",
+                    additional_title="loaded_emb",
                 )
