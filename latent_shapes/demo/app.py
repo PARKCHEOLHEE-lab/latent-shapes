@@ -24,7 +24,9 @@ configuration.set_seed()
 
 states = torch.load(os.path.join(basedir, "states.pth"))
 
-latent_shapes = LatentShapes(latent_shapes=torch.rand(size=(configuration.SLICER, configuration.NUM_LATENT_SHAPE_VERTICES, 3)))
+latent_shapes = LatentShapes(
+    latent_shapes=torch.rand(size=(configuration.SLICER, configuration.NUM_LATENT_SHAPE_VERTICES, 3))
+)
 latent_shapes.load_state_dict(states["state_dict_latent_shapes"])
 
 sdf_decoder = SDFDecoder(configuration=configuration)
@@ -56,7 +58,7 @@ def get_random_latent_shape():
     random_index = torch.randint(0, configuration.SLICER, (1,))
     latent_shape = latent_shapes(random_index).squeeze(0)
     faces = configuration.BOX.faces
-    
+
     # map y to z to match the loaded latent shape into the xzy system
     latent_shape[:, [1, 2]] = latent_shape[:, [2, 1]]
 
