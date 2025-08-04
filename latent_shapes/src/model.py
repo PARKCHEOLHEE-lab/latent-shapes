@@ -231,7 +231,9 @@ class SDFDecoder(nn.Module):
                 v_min = mesh.vertices.min(axis=0)
                 v_max = mesh.vertices.max(axis=0)
                 mesh.vertices = (mesh.vertices - v_min) / (v_max - v_min)
-                mesh.vertices = latent_shape_bounds[0] + mesh.vertices * (latent_shape_bounds[1] - latent_shape_bounds[0])
+                mesh.vertices = latent_shape_bounds[0] + mesh.vertices * (
+                    latent_shape_bounds[1] - latent_shape_bounds[0]
+                )
 
             if rescale:
                 latent_shape_bounds = torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0)
