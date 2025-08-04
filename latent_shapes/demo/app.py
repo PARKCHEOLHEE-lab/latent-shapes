@@ -38,6 +38,7 @@ class ReconstructRequest(BaseModel):
     rescale: bool
     normalize: bool
     map_z_to_y: bool
+    ensure_watertight: bool
     resolution: int
 
 
@@ -79,11 +80,10 @@ def reconstruct(request: ReconstructRequest):
             latent_shapes=latent_shapes_tensor.unsqueeze(0),
             save_path=os.path.join(os.path.dirname(__file__)),
             normalize=request.normalize,
-            check_watertight=False,
+            check_watertight=request.ensure_watertight,
             map_z_to_y=request.map_z_to_y,
             add_noise=False,
             rescale=request.rescale,
-            # centraize=False
         )
 
         if reconstruction_results[0] is None:
@@ -94,8 +94,14 @@ def reconstruct(request: ReconstructRequest):
 
         vertices = mesh.vertices.tolist()
         faces = mesh.faces.tolist()
+        edges = mesh.edges.tolist()
 
-        return {"message": "Reconstruction successful", "vertices": vertices, "faces": faces}
+        return {
+            "message": "Reconstruction successful",
+            "vertices": vertices,
+            "faces": faces,
+            "edges": edges,
+        }
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Reconstruction failed: {str(e)}")

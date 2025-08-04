@@ -199,22 +199,12 @@
 <body>
     <div id="sidebar">
         <div class="control-group">
-            <h3>Shape Controls</h3>
-            <div class="control-item">
-                <button id="load_random_shape_button" class="btn" onclick="load_random_shape()">Load Latent Shape</button>
-            </div>
-            <div class="control-item">
-                <button id="reconstruct_button" class="btn secondary" onclick="reconstruct()">Reconstruct</button>
-            </div>
-        </div>
-
-        <div class="control-group">
-            <h3>Settings</h3>
+            <h3>Controller</h3>
             <div class="control-item">
                 <label for="resolution_slider">Resolution</label>
                 <div class="slider-container">
-                    <input type="range" id="resolution_slider" class="slider" min="32" max="256" value="64" step="8">
-                    <div class="slider-value" id="resolution_value">64</div>
+                    <input type="range" id="resolution_slider" class="slider" min="32" max="256" value="80" step="8">
+                    <div class="slider-value" id="resolution_value">80</div>
                 </div>
             </div>
             <div class="control-item">
@@ -235,14 +225,44 @@
                     <label for="map_z_to_y_checkbox">Map Z to Y</label>
                 </div>
             </div>
+            <div class="control-item">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="ensure_watertight_checkbox" class="checkbox">
+                    <label for="ensure_watertight_checkbox">Ensure Watertight</label>
+                </div>
+            </div>
+            <div class="control-item">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="show_latent_shape" class="checkbox" checked>
+                    <label for="show_latent_shape">Show Latent Shape</label>
+                </div>
+            </div>
+            <div class="control-item">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="show_reconstructed_wireframe" class="checkbox" checked>
+                    <label for="show_reconstructed_wireframe">Show Wireframe</label>
+                </div>
+            </div>
         </div>
 
         <div class="control-group">
-            <h3>Instructions</h3>
+            <h3>Runner</h3>
+            <div class="control-item">
+                <button id="load_random_shape_button" class="btn" onclick="load_random_shape()">Load Latent Shape</button>
+            </div>
+            <div class="control-item">
+                <button id="reconstruct_button" class="btn secondary" onclick="reconstruct()">Reconstruct</button>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>States</h3>
             <div style="font-size: 12px; color: #666; line-height: 1.4;">
-                <p><strong>Selection:</strong> Hold Shift + drag to select vertices</p>
-                <p><strong>Transform:</strong> Drag the gizmo to move selected vertices</p>
-                <p><strong>Clear:</strong> Press Escape to clear selection</p>
+                <p id="latent_shape_size">Latent Shape: </p>
+                <p id="reconstructed_mesh_vertices_size">Reconstructed Mesh Vertices: </p>
+                <p id="reconstructed_mesh_faces_size">Reconstructed Mesh Faces: </p>
+                <p id="reconstructed_mesh_edges_size">Reconstructed Mesh Edges: </p>
+                <p id="duration">Duration: </p>
             </div>
         </div>
     </div>
@@ -324,7 +344,25 @@
         let is_mouse_down = false;
         let is_selection_mode = false;
 
-        let box_geometry = new THREE.BoxGeometry(1, 1, 1)
+        // bounds from config.py
+        const min_x_bound = -0.614935;
+        const max_x_bound = 0.644344;
+        const min_y_bound = -0.767495;
+        const max_y_bound = 0.792882;
+        const min_z_bound = -0.666214;
+        const max_z_bound = 0.581235;
+
+        const box_width  = max_x_bound - min_x_bound;
+        const box_height = max_y_bound - min_y_bound;
+        const box_depth  = max_z_bound - min_z_bound;
+
+        // bounding box
+        let box_geometry = new THREE.BoxGeometry(box_width, box_depth, box_height);
+        box_geometry.translate(
+            (min_x_bound + max_x_bound) / 2,
+            (min_y_bound + max_y_bound) / 2,
+            (min_z_bound + max_z_bound) / 2
+        );
         box_geometry = new THREE.EdgesGeometry(box_geometry);
 
         box_geometry = new THREE.LineSegments(box_geometry, BOX_LINESEGMENTS_MATERIAL);
@@ -333,9 +371,6 @@
         // create scene
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
-
-        const grid_helper = new THREE.GridHelper(10, 10);
-        const axes_helper = new THREE.AxesHelper(5);
 
         // set renderer
         const renderer = new THREE.WebGLRenderer();
@@ -361,23 +396,46 @@
         selection_helper.element.style.display = "none";
 
         // scene
-        // scene.add(grid_helper);
-        // scene.add(axes_helper);
         scene.add(transform_controls);
         scene.add(box_geometry);
 
         window.load_random_shape = load_random_shape;
         window.reconstruct = reconstruct;
 
-        // Initialize sidebar controls
+        // initialize sidebar
         const resolution_slider = document.getElementById("resolution_slider");
         const resolution_value = document.getElementById("resolution_value");
         const rescale_checkbox = document.getElementById("rescale_checkbox");
         const normalize_checkbox = document.getElementById("normalize_checkbox");
 
-        // Update resolution value display when slider changes
         resolution_slider.addEventListener("input", function() {
             resolution_value.textContent = this.value;
+        });
+
+        const show_latent_shape_checkbox = document.getElementById("show_latent_shape");
+        show_latent_shape_checkbox.addEventListener("change", function() {
+            if (this.checked) {
+                for (const sphere of latent_shape) {
+                    scene.add(sphere);
+                }
+                scene.add(latent_shape_wireframe);
+            } else {
+                for (const sphere of latent_shape) {
+                    scene.remove(sphere);
+                }
+                scene.remove(latent_shape_wireframe);
+                transform_controls.detach();
+
+                for (const vertex of selected_shape) {
+                    vertex.material.color.set(LATENT_SHAPE_SPHERE_COLOR)
+                    scene.remove(vertex)
+                }
+            }
+        });
+
+        const show_reconstructed_wireframe = document.getElementById("show_reconstructed_wireframe");
+        show_reconstructed_wireframe.addEventListener("change", function() {
+            _show_reconstructed_wireframe(this.checked);
         });
 
         window.addEventListener("keydown", on_keydown);
@@ -591,6 +649,10 @@
             const load_random_shape_button = document.getElementById("load_random_shape_button");
             const reconstruct_button = document.getElementById("reconstruct_button");
             const container = document.getElementById("container");
+            const latent_shape_size = document.getElementById("latent_shape_size")
+
+            const show_latent_shape_checkbox = document.getElementById("show_latent_shape");
+            show_latent_shape_checkbox.checked = true;
 
             load_random_shape_button.disabled = true;
             reconstruct_button.disabled = true;
@@ -627,6 +689,8 @@
                     LATENT_SHAPE_WIREFRAME_MATERIAL,
                 )
 
+                latent_shape_size.innerHTML = `Latent Shape: <strong>${latent_shape_vertices.length}</strong>`;
+
                 latent_shape_wireframe.name = LATENT_SHAPE_WIREFRAME
                 scene.add(latent_shape_wireframe)
                 render();
@@ -649,9 +713,14 @@
                 return;
             }
 
+            const start_time = performance.now(); // Add this line at the beginning
+
             const load_random_shape_button = document.getElementById("load_random_shape_button");
             const reconstruct_button = document.getElementById("reconstruct_button");
             const container = document.getElementById("container");
+            const reconstructed_mesh_vertices_size = document.getElementById("reconstructed_mesh_vertices_size")
+            const reconstructed_mesh_faces_size = document.getElementById("reconstructed_mesh_faces_size")
+            const reconstructed_mesh_edges_size = document.getElementById("reconstructed_mesh_edges_size")
 
             const originalClass = reconstruct_button.classList.contains("primary") ? "primary" : "secondary";
 
@@ -664,22 +733,17 @@
 
             try {
 
-                console.time("loading latentshape")
                 const latent_shape_vertices = [];
                 for (const child of latent_shape) {
                     if (child.name === LATENT_SHAPE) {
                         latent_shape_vertices.push([child.position.x, child.position.z, child.position.y])
                     }
                 }
-                console.timeEnd("loading latentshape")
-
-                console.time("reconstructing with latentshape")
-
-                // Get current control values
                 const current_resolution = parseInt(document.getElementById("resolution_slider").value);
                 const current_rescale = document.getElementById("rescale_checkbox").checked;
                 const current_normalize = document.getElementById("normalize_checkbox").checked;
                 const current_map_z_to_y = document.getElementById("map_z_to_y_checkbox").checked;
+                const current_ensure_watertight = document.getElementById("ensure_watertight_checkbox").checked;
 
                 const response = await fetch(
                     "/api/reconstruct",
@@ -693,20 +757,25 @@
                                 rescale: current_rescale,
                                 normalize: current_normalize,
                                 map_z_to_y: current_map_z_to_y,
+                                ensure_watertight: current_ensure_watertight
                             }
                         )
                     }
                 );
 
                 const result_data = await response.json();
-                console.timeEnd("reconstructing with latentshape")
 
                 if (
                     response.ok
                     && result_data.vertices
                     && result_data.faces
+                    && result_data.edges
                 ) {
                     clear_scene(RECONSTRUCTION_MODE);
+
+                    reconstructed_mesh_vertices_size.innerHTML = `Reconstructed Mesh Vertices: <strong>${result_data.vertices.length}</strong>`
+                    reconstructed_mesh_faces_size.innerHTML = `Reconstructed Mesh Faces: <strong>${result_data.faces.length}</strong>`
+                    reconstructed_mesh_edges_size.innerHTML = `Reconstructed Mesh Edges: <strong>${result_data.edges.length}</strong>`
 
                     const reconstructed_mesh_vertices = result_data.vertices.map(vertex => [vertex[0], vertex[2], vertex[1]])
 
@@ -725,6 +794,9 @@
                     reconstructed.add(reconstructed_mesh)
                     reconstructed.add(reconstructed_mesh_wireframe)
                     scene.add(reconstructed);
+
+                    const show_reconstructed_wireframe_checkbox = document.getElementById("show_reconstructed_wireframe")
+                    _show_reconstructed_wireframe(show_reconstructed_wireframe_checkbox.checked);
                 } else {
                     console.error("Reconstruction failed:", result_data.message);
                     alert("Reconstruction failed: " + result_data.message);
@@ -734,13 +806,25 @@
                 console.error("Error during reconstruction:", error);
                 alert("Error: " + error.message);
             } finally {
-                // 버튼 상태 복원
                 load_random_shape_button.disabled = false;
                 reconstruct_button.disabled = false;
                 load_random_shape_button.classList.remove("loading");
                 reconstruct_button.classList.remove("loading");
                 reconstruct_button.classList.remove("disabled");
                 reconstruct_button.classList.add(originalClass);
+
+                const duration = (performance.now() - start_time).toFixed(3);
+                document.getElementById("duration").innerHTML = `Duration: <strong>${duration}ms</strong>`;
+            }
+        }
+
+        function _show_reconstructed_wireframe(checked) {
+            const wireframe = reconstructed.children.find(child =>
+                child.material && child.material.wireframe === true
+            );
+
+            if (wireframe) {
+                wireframe.visible = checked;
             }
         }
 
@@ -754,7 +838,11 @@
             render();
         }
 
+        const load_random_shape_button = document.getElementById("load_random_shape_button");
+        load_random_shape_button.click();
+
         animate();
+
     </script>
 </body>
 </html>
