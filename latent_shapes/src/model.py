@@ -232,8 +232,6 @@ class SDFDecoder(nn.Module):
                 v_max = mesh.vertices.max(axis=0)
                 mesh.vertices = (mesh.vertices - v_min) / (v_max - v_min)
                 mesh.vertices = latent_shape_bounds[0] + mesh.vertices * (latent_shape_bounds[1] - latent_shape_bounds[0])
-                translation = (latent_shape_bounds * 0.5).sum(axis=0) - (mesh.bounds * 0.5).sum(axis=0)
-                mesh.vertices = mesh.vertices + translation
 
             if rescale:
                 latent_shape_bounds = torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0)
@@ -247,9 +245,9 @@ class SDFDecoder(nn.Module):
                 # scale
                 mesh.vertices = mesh.vertices * scale_factor
 
-                # centralize
-                translation = (latent_shape_bounds * 0.5).sum(axis=0) - (mesh.bounds * 0.5).sum(axis=0)
-                mesh.vertices = mesh.vertices + translation
+            # centralize
+            translation = (latent_shape_bounds * 0.5).sum(axis=0) - (mesh.bounds * 0.5).sum(axis=0)
+            mesh.vertices = mesh.vertices + translation
 
             mesh = trimesh.util.concatenate([mesh, trimesh.Trimesh(vertices=latent_shape.cpu().numpy(), faces=[])])
 
