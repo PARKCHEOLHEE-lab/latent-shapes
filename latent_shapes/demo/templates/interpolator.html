@@ -215,12 +215,6 @@
             </div>
             <div class="control-item">
                 <div class="checkbox-container">
-                    <input type="checkbox" id="normalize_checkbox" class="checkbox" checked>
-                    <label for="normalize_checkbox">Normalize</label>
-                </div>
-            </div>
-            <div class="control-item">
-                <div class="checkbox-container">
                     <input type="checkbox" id="map_z_to_y_checkbox" class="checkbox" checked>
                     <label for="map_z_to_y_checkbox">Map Z to Y</label>
                 </div>
@@ -406,7 +400,6 @@
         const resolution_slider = document.getElementById("resolution_slider");
         const resolution_value = document.getElementById("resolution_value");
         const rescale_checkbox = document.getElementById("rescale_checkbox");
-        const normalize_checkbox = document.getElementById("normalize_checkbox");
 
         resolution_slider.addEventListener("input", function() {
             resolution_value.textContent = this.value;
@@ -755,7 +748,6 @@
                                 latent_shapes: latent_shape_vertices,
                                 resolution: current_resolution,
                                 rescale: current_rescale,
-                                normalize: current_normalize,
                                 map_z_to_y: current_map_z_to_y,
                                 ensure_watertight: current_ensure_watertight
                             }
