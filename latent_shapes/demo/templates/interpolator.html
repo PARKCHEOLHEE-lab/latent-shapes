@@ -715,13 +715,13 @@
             const reconstructed_mesh_faces_size = document.getElementById("reconstructed_mesh_faces_size")
             const reconstructed_mesh_edges_size = document.getElementById("reconstructed_mesh_edges_size")
 
-            const originalClass = reconstruct_button.classList.contains("primary") ? "primary" : "secondary";
+            const original_class = reconstruct_button.classList.contains("primary") ? "primary" : "secondary";
 
             load_random_shape_button.disabled = true;
             reconstruct_button.disabled = true;
             load_random_shape_button.classList.add("loading");
             reconstruct_button.classList.add("loading");
-            reconstruct_button.classList.remove(originalClass);
+            reconstruct_button.classList.remove(original_class);
             reconstruct_button.classList.add("disabled");
 
             try {
@@ -802,7 +802,7 @@
                 load_random_shape_button.classList.remove("loading");
                 reconstruct_button.classList.remove("loading");
                 reconstruct_button.classList.remove("disabled");
-                reconstruct_button.classList.add(originalClass);
+                reconstruct_button.classList.add(original_class);
 
                 const duration = (performance.now() - start_time).toFixed(3);
                 document.getElementById("duration").innerHTML = `Duration: <strong>${duration}ms</strong>`;
