@@ -13,3 +13,4 @@ tensorboard==2.16.2
 rtree==1.4.0
 fastapi==0.116.1
 pydantic==2.5.2
+uvicorn==0.35.0
