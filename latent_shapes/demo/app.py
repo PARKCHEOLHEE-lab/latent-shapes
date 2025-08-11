@@ -36,7 +36,6 @@ sdf_decoder.load_state_dict(states["state_dict_decoder"])
 class ReconstructRequest(BaseModel):
     latent_shapes: List[List[float]]
     rescale: bool
-    normalize: bool
     map_z_to_y: bool
     ensure_watertight: bool
     resolution: int
@@ -79,7 +78,6 @@ def reconstruct(request: ReconstructRequest):
         reconstruction_results = sdf_decoder.reconstruct(
             latent_shapes=latent_shapes_tensor.unsqueeze(0),
             save_path=os.path.join(os.path.dirname(__file__)),
-            normalize=request.normalize,
             check_watertight=request.ensure_watertight,
             map_z_to_y=request.map_z_to_y,
             add_noise=False,

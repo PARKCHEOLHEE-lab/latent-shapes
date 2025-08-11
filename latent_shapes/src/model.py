@@ -159,7 +159,6 @@ class SDFDecoder(nn.Module):
         self,
         latent_shapes: torch.Tensor,
         save_path: str,
-        normalize: bool = True,
         check_watertight: bool = False,
         map_z_to_y: bool = True,
         add_noise: bool = False,
@@ -226,14 +225,6 @@ class SDFDecoder(nn.Module):
 
             latent_shape_bounds = torch.stack([latent_shape.amin(dim=0), latent_shape.amax(dim=0)], dim=0)
             latent_shape_bounds = latent_shape_bounds.cpu().numpy()
-
-            if normalize:
-                v_min = mesh.vertices.min(axis=0)
-                v_max = mesh.vertices.max(axis=0)
-                mesh.vertices = (mesh.vertices - v_min) / (v_max - v_min)
-                mesh.vertices = latent_shape_bounds[0] + mesh.vertices * (
-                    latent_shape_bounds[1] - latent_shape_bounds[0]
-                )
 
             if rescale:
                 mesh_size = mesh.bounds[1] - mesh.bounds[0]

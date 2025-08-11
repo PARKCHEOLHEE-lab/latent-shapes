@@ -320,10 +320,9 @@ class Trainer:
                 _sdf_decoder.reconstruct(
                     latent_shapes_batch_embedding,
                     save_path=self.log_dir,
-                    normalize=True,
                     check_watertight=False,
                     add_noise=False,
-                    rescale=False,
+                    rescale=True,
                     map_z_to_y=False,
                     additional_title="loaded_emb",
                 )
