@@ -22,7 +22,7 @@ app = FastAPI(title="latent-shapes")
 configuration = Configuration()
 configuration.set_seed()
 
-states = torch.load(os.path.join(basedir, "states.pth"))
+states = torch.load(os.path.join(basedir, configuration.SAVE_NAME))
 
 latent_shapes = LatentShapes(
     latent_shapes=torch.rand(size=(configuration.SLICER, configuration.NUM_LATENT_SHAPE_VERTICES, 3))
