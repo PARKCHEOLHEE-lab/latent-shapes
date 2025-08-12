@@ -16,7 +16,7 @@ class DataConfiguration:
 
     N_SURFACE_SAMPLING_RATIO = 0.3
     N_SURFACE_NOISY_SAMPLING_RATIO = 0.5
-# N_VOLUME_SAMPLING_RATIO = 0.2
+    # N_VOLUME_SAMPLING_RATIO = 0.2
 
     SURFACE_NOISY_SAMPLING_RANGE = 0.10
 
@@ -53,7 +53,7 @@ class DataConfiguration:
 
 
 class ModelConfiguration:
-    EPOCHS = 100
+    EPOCHS = 120
     SEED = 777
 
     BATCH_SIZE = 128
