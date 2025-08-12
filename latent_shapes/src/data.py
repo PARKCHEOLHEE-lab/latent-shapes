@@ -25,12 +25,29 @@ class DataCreator:
         )
 
     def _map_mesh_z_to_y(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        """swap a given mesh's y and z 
+
+        Args:
+            mesh (trimesh.Trimesh): mesh to map
+
+        Returns:
+            trimesh.Trimesh: mapped mesh
+        """
         mapped_mesh = mesh.copy()
         mapped_mesh.vertices[:, [1, 2]] = mapped_mesh.vertices[:, [2, 1]]
 
         return mapped_mesh
 
     def _centralize_mesh(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        """translate a given mesh to be zero-centered 
+
+        Args:
+            mesh (trimesh.Trimesh): mesh to translate
+
+        Returns:
+            trimesh.Trimesh: centralized mesh
+        """
+
         centralized_mesh = mesh.copy()
 
         centralized_mesh.vertices -= centralized_mesh.vertices.mean(axis=0)
@@ -39,6 +56,15 @@ class DataCreator:
         return centralized_mesh
 
     def _orient_mesh(self, mesh: trimesh.Trimesh) -> trimesh.Trimesh:
+        """align a given mesh to follow the AABB axis
+
+        Args:
+            mesh (trimesh.Trimesh): mesh to rotate
+
+        Returns:
+            trimesh.Trimesh: oriented mesh
+        """
+        
         oriented_mesh = mesh.copy()
 
         # compute obb information
@@ -71,6 +97,15 @@ class DataCreator:
         return oriented_mesh
 
     def _compute_latent_shape(self, mesh: trimesh.Trimesh) -> np.ndarray:
+        """compute latent shape of a given mesh
+
+        Args:
+            mesh (trimesh.Trimesh): mesh to compute
+
+        Returns:
+            np.ndarray: latent shape
+        """
+        
         box_mesh = trimesh.creation.box(bounds=mesh.bounds)
         box_mesh.vertices = box_mesh.vertices @ self.configuration.BOX_MESH_SCALE_MATRIX
 
@@ -114,6 +149,15 @@ class DataCreator:
         return box_mesh_subdivided.vertices, box_mesh_subdivided.faces
 
     def _sample_points(self, mesh: trimesh.Trimesh) -> np.ndarray:
+        """sample points used for computing sdf values
+
+        Args:
+            mesh (trimesh.Trimesh): mesh to sample
+
+        Returns:
+            np.ndarray: sampled points
+        """
+        
         # sample surface points
         surface_points_sampled, _ = trimesh.sample.sample_surface(mesh, self.configuration.N_SURFACE_SAMPLING)
 
@@ -142,6 +186,16 @@ class DataCreator:
         return np.concatenate([surface_points_sampled, surface_points_noisy_sampled, volume_points_sampled])
 
     def _create_one(self, file: str, map_z_to_y: bool) -> bool:
+        """process a data
+
+        Args:
+            file (str): file path
+            map_z_to_y (bool): whether mapping z to y
+
+        Returns:
+            bool: False if processing fails
+        """
+        
         print(f"processing {file}", flush=True)
 
         # load mesh
@@ -201,6 +255,15 @@ class DataCreator:
         copy_obj: bool = False,
         slicer: Optional[int] = None,
     ) -> None:
+        """main method to create data
+
+        Args:
+            map_z_to_y (bool, optional): whether mapping z to y. Defaults to True.
+            use_multiprocessing (bool, optional): whether using multiprocessing. Defaults to True.
+            copy_obj (bool, optional): whether copying processed mesh. Defaults to False.
+            slicer (Optional[int], optional): number of data to create. Defaults to None.
+        """
+        
         tasks: List[Tuple[str, bool]]
         tasks = []
 
@@ -339,8 +402,17 @@ class SDFDataset(Dataset):
         data_dir: str,
         configuration: Configuration,
         data_slicer: Optional[int] = None,
-    ) -> Dict:
-        """"""
+    ) -> "SDFDataset":
+        """create dataset to train SDFDecoder
+
+        Args:
+            data_dir (str): data directory path
+            configuration (Configuration): configuration to use for training
+            data_slicer (Optional[int], optional): number of data to use for training. Defaults to None.
+
+        Returns:
+            SDFDataset: created dataset
+        """
 
         sdf_dataset = SDFDataset(data_dir, configuration, data_slicer)
 
