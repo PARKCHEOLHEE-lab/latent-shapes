@@ -7,7 +7,7 @@ import multiprocessing
 from .config import Configuration
 
 
-def process_obj_file(file_path: str):
+def _compute_bounds(file_path: str):
     try:
         print(file_path)
         mesh = trimesh.load(file_path)
@@ -31,7 +31,7 @@ def main():
     ]
 
     with multiprocessing.Pool(processes=multiprocessing.cpu_count()) as pool:
-        results = pool.map(process_obj_file, file_path_list)
+        results = pool.map(_compute_bounds, file_path_list)
 
     valid_bounds = [bounds for bounds in results if bounds is not None]
 
