@@ -15,8 +15,8 @@ class DataConfiguration:
     MAX_Z_BOUND = 0.5812350000
 
     N_SURFACE_SAMPLING_RATIO = 0.3
-    N_VOLUME_SAMPLING_RATIO = 0.2
     N_SURFACE_NOISY_SAMPLING_RATIO = 0.5
+# N_VOLUME_SAMPLING_RATIO = 0.2
 
     SURFACE_NOISY_SAMPLING_RANGE = 0.10
 
@@ -107,10 +107,6 @@ class ModelConfiguration:
     print("CUDA status")
     print(f"  torch.cuda.is_available(): {torch.cuda.is_available()}")
     print(f"  DEVICE: {DEVICE} \n")
-
-    if DEVICE == CUDA:
-        for i in range(torch.cuda.device_count()):
-            print(f"Current device: {torch.cuda.get_device_name(i)}")
 
 
 class Configuration(DataConfiguration, ModelConfiguration):
