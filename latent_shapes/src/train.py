@@ -1,20 +1,19 @@
-if __name__ == "__main__":
-    # CUDA_VISIBLE_DEVICE=0 python train.py
+import os
+import sys
+import torch
 
-    import os
-    import sys
-    import torch
+print(f"CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
 
-    print(f"CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
+if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
+    sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
 
-    if os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")) not in sys.path:
-        sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../")))
+from latent_shapes.src.config import Configuration
+from latent_shapes.src.data import SDFDataset
+from latent_shapes.src.model import SDFDecoder, LatentShapes
+from latent_shapes.src.trainer import Trainer
 
-    from latent_shapes.src.config import Configuration
-    from latent_shapes.src.data import SDFDataset
-    from latent_shapes.src.model import SDFDecoder, LatentShapes
-    from latent_shapes.src.trainer import Trainer
 
+def main():
     configuration = Configuration()
     configuration.set_seed()
 
@@ -47,3 +46,7 @@ if __name__ == "__main__":
     )
 
     sdf_decoder_trainer.train()
+
+
+if __name__ == "__main__":
+    main()
