@@ -18,7 +18,7 @@
             font-family: Arial, sans-serif;
         }
 
-        #sidebar {
+        #sidebar-left {
             position: fixed;
             left: 20px;
             top: 20px;
@@ -32,6 +32,29 @@
             padding: 20px;
             box-sizing: border-box;
             overflow-y: auto;
+        }
+
+        #sidebar-right {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            width: 200px;
+            text-align: left;
+            z-index: 1000;
+        }
+
+        #sidebar-right table {
+            width: 100%;
+        }
+        
+        #sidebar-right td:nth-child(1) {
+            text-align: right;
+            padding-right: 10px;
+        }
+        
+        #sidebar-right td:nth-child(3) {
+            text-align: left;
+            padding-left: 10px;
         }
 
         .control-group {
@@ -183,22 +206,34 @@
             background-color: rgba(255, 255, 255, 0.2);
             position: fixed;
         }
-
-        #result {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 15px;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-            max-width: 300px;
-        }
     </style>
 </head>
 <body>
-    <div id="sidebar">
+    <div id="sidebar-right">
+        <table>
+            <tr>
+                <td><label>shift + drag</label></td>
+                <td><label>=</label></td>
+                <td><label>selection</label></td>
+            </tr>
+            <tr>
+                <td><label>ctrl + drag</label></td>
+                <td><label>=</label></td>
+                <td><label>moving camera</label></td>
+            </tr>
+            <tr>
+                <td><label>drag</label></td>
+                <td><label>=</label></td>
+                <td><label>rotation</label></td>
+            </tr>
+            <tr>
+                <td><label>esc</label></td>
+                <td><label>=</label></td>
+                <td><label>deselection</label></td>
+            </tr>
+        </table>
+    </div>
+    <div id="sidebar-left">
         <div class="control-group">
             <h3>Controller</h3>
             <div class="control-item">
@@ -234,8 +269,8 @@
             </div>
             <div class="control-item">
                 <div class="checkbox-container">
-                    <input type="checkbox" id="show_reconstructed_wireframe" class="checkbox" checked>
-                    <label for="show_reconstructed_wireframe">Show Wireframe</label>
+                    <input type="checkbox" id="show_reconstructed_mesh" class="checkbox" checked>
+                    <label for="show_reconstructed_mesh">Show Reconstructed Mesh</label>
                 </div>
             </div>
         </div>
@@ -254,6 +289,7 @@
             <h3>States</h3>
             <div style="font-size: 12px; color: #666; line-height: 1.4;">
                 <p id="latent_shape_size">Latent Shape: </p>
+                <p id="latent_shape_index">Latent Shape Index: </p>
                 <p id="reconstructed_mesh_vertices_size">Reconstructed Mesh Vertices: </p>
                 <p id="reconstructed_mesh_faces_size">Reconstructed Mesh Faces: </p>
                 <p id="reconstructed_mesh_edges_size">Reconstructed Mesh Edges: </p>
@@ -397,7 +433,7 @@
         window.load_random_shape = load_random_shape;
         window.reconstruct = reconstruct;
 
-        // initialize sidebar
+        // initialize sidebar-left
         const resolution_slider = document.getElementById("resolution_slider");
         const resolution_value = document.getElementById("resolution_value");
         const rescale_checkbox = document.getElementById("rescale_checkbox");
@@ -427,9 +463,9 @@
             }
         });
 
-        const show_reconstructed_wireframe = document.getElementById("show_reconstructed_wireframe");
-        show_reconstructed_wireframe.addEventListener("change", function() {
-            _show_reconstructed_wireframe(this.checked);
+        const show_reconstructed_mesh = document.getElementById("show_reconstructed_mesh");
+        show_reconstructed_mesh.addEventListener("change", function() {
+            _show_reconstructed_mesh(this.checked);
         });
 
         window.addEventListener("keydown", on_keydown);
@@ -644,6 +680,7 @@
             const reconstruct_button = document.getElementById("reconstruct_button");
             const container = document.getElementById("container");
             const latent_shape_size = document.getElementById("latent_shape_size")
+            const latent_shape_index = document.getElementById("latent_shape_index")
 
             const show_latent_shape_checkbox = document.getElementById("show_latent_shape");
             show_latent_shape_checkbox.checked = true;
@@ -684,6 +721,7 @@
                 )
 
                 latent_shape_size.innerHTML = `Latent Shape: <strong>${latent_shape_vertices.length}</strong>`;
+                latent_shape_index.innerHTML = `Latent Shape Index: <strong>${response_json.index}</strong>`;
 
                 latent_shape_wireframe.name = LATENT_SHAPE_WIREFRAME
                 scene.add(latent_shape_wireframe)
@@ -691,7 +729,6 @@
 
             } catch (error) {
                 console.error("Error loading random shape:", error);
-                document.getElementById("result").innerHTML = error.message;
             } finally {
                 load_random_shape_button.disabled = false;
                 reconstruct_button.disabled = false;
@@ -787,8 +824,8 @@
                     reconstructed.add(reconstructed_mesh_wireframe)
                     scene.add(reconstructed);
 
-                    const show_reconstructed_wireframe_checkbox = document.getElementById("show_reconstructed_wireframe")
-                    _show_reconstructed_wireframe(show_reconstructed_wireframe_checkbox.checked);
+                    const show_reconstructed_mesh_checkbox = document.getElementById("show_reconstructed_mesh")
+                    _show_reconstructed_mesh(show_reconstructed_mesh_checkbox.checked);
                 } else {
                     console.error("Reconstruction failed:", result_data.message);
                     alert("Reconstruction failed: " + result_data.message);
@@ -807,16 +844,19 @@
 
                 const duration = (performance.now() - start_time).toFixed(3);
                 document.getElementById("duration").innerHTML = `Duration: <strong>${duration}ms</strong>`;
+                
+                selected_shape = [];
+                selected_indices = [];
+                transform_controls.detach();
+                for (const vertex of latent_shape) {
+                    vertex.material.color.set(LATENT_SHAPE_SPHERE_COLOR)
+                }
             }
         }
 
-        function _show_reconstructed_wireframe(checked) {
-            const wireframe = reconstructed.children.find(child =>
-                child.material && child.material.wireframe === true
-            );
-
-            if (wireframe) {
-                wireframe.visible = checked;
+        function _show_reconstructed_mesh(checked) {
+            for (const child of reconstructed.children) {
+                child.visible = checked;
             }
         }
 

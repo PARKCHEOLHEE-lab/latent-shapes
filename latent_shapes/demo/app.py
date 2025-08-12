@@ -55,14 +55,15 @@ def interpolator():
 
 @app.get("/api/latent_shapes")
 def get_random_latent_shape():
-    random_index = torch.randint(0, configuration.SLICER, (1,))
-    latent_shape = latent_shapes(random_index).squeeze(0)
+    random_index_max = latent_shapes.embedding.shape[0]
+    random_index_selected = torch.randint(0, random_index_max, (1,))
+    latent_shape = latent_shapes(random_index_selected).squeeze(0)
     faces = configuration.BOX.faces
 
     # map y to z to match the loaded latent shape into the xzy system
     latent_shape[:, [1, 2]] = latent_shape[:, [2, 1]]
 
-    return {"latent_shape": latent_shape.tolist(), "faces": faces.tolist()}
+    return {"latent_shape": latent_shape.tolist(), "faces": faces.tolist(), "index": f"{random_index_selected.item()}/{random_index_max - 1}"}
 
 
 @app.post("/api/reconstruct")
