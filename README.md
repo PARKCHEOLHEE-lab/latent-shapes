@@ -89,10 +89,12 @@ This repository uses the [image](/.devcontainer/Dockerfile) named `nvcr.io/nvidi
 
 
 # Demo
-> [!NOTE]
-> The demo can run on both CPU and GPU. However, CPU inference is significantly slower. For reference, using RTX 3060 Laptop GPU at 80 for resolution, mesh reconstruction took approximately 1500ms.
+<div align="justify">
+  The demo can run on both CPU and GPU. However, CPU inference is significantly slower. For reference, using RTX 3060 Laptop GPU at 80 for resolution, mesh reconstruction took approximately 1500ms. To run the demo, execute the <code>app.py</code> after changing the directory to the <code>latent_shapes/demo</code>. 
+</div>
 
-To run the demo, execute the `app.py` after changing the directory to the `latent_shapes/demo`.
+<br>
+
 ```
   cd latent_shapes/demo && python app.py
 
