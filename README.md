@@ -109,9 +109,9 @@ To run the demo, execute the `app.py` after changing the directory to the `laten
 <br>
 
 
-<div align="center">
-  <img src="latent_shapes/assets/latent-shapes-demo-0.png" width="100%">　　
-  <img src="latent_shapes/assets/latent-shapes-demo-1.png" width="100%">
+<div align="center" display="flex">
+  <img src="latent_shapes/assets/latent-shapes-demo-0.png" width="47%">　　
+  <img src="latent_shapes/assets/latent-shapes-demo-1.png" width="47%">
   <br><br>
   <p align="center">
     <i>
