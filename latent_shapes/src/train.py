@@ -30,15 +30,8 @@ if __name__ == "__main__":
 
     sdf_decoder = SDFDecoder(configuration=configuration)
 
-    sdf_decoder_module = sdf_decoder
-
-    if configuration.USE_MULTI_GPUS and torch.cuda.device_count() >= 2:
-        sdf_decoder = torch.nn.DataParallel(sdf_decoder, device_ids=[i for i in range(torch.cuda.device_count())])
-
-        sdf_decoder_module = sdf_decoder.module
-
     _sdf_decoder_optimizer = getattr(torch.optim, configuration.OPTIMIZER)
-    sdf_decoder_optimizer = _sdf_decoder_optimizer(sdf_decoder_module.parameters(), lr=configuration.LR_DECODER)
+    sdf_decoder_optimizer = _sdf_decoder_optimizer(sdf_decoder.parameters(), lr=configuration.LR_DECODER)
 
     _latent_shapes_optimizer = getattr(torch.optim, configuration.OPTIMIZER)
     latent_shapes_optimizer = _latent_shapes_optimizer(latent_shapes.parameters(), lr=configuration.LR_LATENT_SHAPES)

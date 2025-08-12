@@ -35,12 +35,6 @@ class Trainer:
         self.sdf_dataset = sdf_dataset
         self.configuration = configuration
 
-        self.sdf_decoder_module = (
-            self.sdf_decoder.module
-            if self.configuration.USE_MULTI_GPUS and torch.cuda.device_count() >= 2
-            else self.sdf_decoder
-        )
-
         assert None not in (
             self.sdf_dataset.train_dataset,
             self.sdf_dataset.train_dataloader,
