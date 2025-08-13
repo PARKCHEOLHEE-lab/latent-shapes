@@ -19,14 +19,14 @@ class LatentShapes(nn.Module):
 
         self.noise = torch.zeros_like(latent_shapes)
         if None not in (noise_min, noise_max):
-            # add noise to latent points
+            # add noise to latent shapes
             self.noise = noise_min + torch.rand_like(latent_shapes) * (noise_max - noise_min)
 
             # check if the noise range is valid
             assert torch.all(self.noise >= noise_min)
             assert torch.all(self.noise <= noise_max)
 
-        # initialize latent points with noise
+        # initialize latent shapes with noise
         self.embedding = nn.Parameter(latent_shapes + self.noise)
 
     def forward(self, class_number: torch.Tensor) -> torch.Tensor:
