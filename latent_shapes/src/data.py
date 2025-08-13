@@ -68,7 +68,7 @@ class DataCreator:
         oriented_mesh = mesh.copy()
 
         # compute obb information
-        transform, (w, h) = trimesh.bounds.oriented_bounds_2D(oriented_mesh.vertices[:, :2])
+        transform, (w, h) = trimesh.bounds.oriented_bounds_2D(oriented_mesh.vertices[:, [0, 2, 1]][:, :2])
 
         # define the 2d bounding box from the above information
         bounding_box_2d = np.array([[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]])
@@ -84,11 +84,14 @@ class DataCreator:
 
         # orient the mesh
         angle_to_orient = -np.arctan2(*(oriented_bounding_box_2d[2] - oriented_bounding_box_2d[1]))
+        c = np.cos(angle_to_orient)
+        s = np.sin(angle_to_orient)
+        
         rotation_matrix = np.array(
             [
-                [np.cos(angle_to_orient), -np.sin(angle_to_orient), 0],
-                [np.sin(angle_to_orient), np.cos(angle_to_orient), 0],
-                [0, 0, 1],
+                [c, 0, -s],
+                [0, 1, 0],
+                [s, 0, c],
             ]
         )
 
