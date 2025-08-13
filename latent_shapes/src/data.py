@@ -23,8 +23,8 @@ class DataCreator:
         self.configuration = configuration
         self.volume_mesh = trimesh.creation.box(
             bounds=[
-                [self.configuration.MIN_X_BOUND, self.configuration.MIN_Y_BOUND, self.configuration.MIN_Z_BOUND],
-                [self.configuration.MAX_X_BOUND, self.configuration.MAX_Y_BOUND, self.configuration.MAX_Z_BOUND],
+                [self.configuration.MIN_X_BOUND, self.configuration.MIN_Z_BOUND, self.configuration.MIN_Y_BOUND],
+                [self.configuration.MAX_X_BOUND, self.configuration.MAX_Z_BOUND, self.configuration.MAX_Y_BOUND],
             ]
         )
 
