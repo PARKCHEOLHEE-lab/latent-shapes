@@ -355,19 +355,9 @@ class SDFDataset(Dataset):
         self.num_classes = len(self.data_path)
 
         self.total_length = self.configuration.N_TOTAL_SAMPLING * len(self.data_path)
-        self.cumulative_length = [0] + [
-            self.configuration.N_TOTAL_SAMPLING * i for i in range(1, len(self.data_path) + 1)
+        self.cumulative_length = [
+            self.configuration.N_TOTAL_SAMPLING * i for i in range(len(self.data_path) + 1)
         ]
-
-        self.max_sdf = -np.inf
-        self.min_sdf = np.inf
-        for data in self.data_path:
-            sdf = np.load(data)["sdf"]
-            self.max_sdf = max(self.max_sdf, sdf.max())
-            self.min_sdf = min(self.min_sdf, sdf.min())
-
-        assert self.max_sdf != -np.inf
-        assert self.min_sdf != np.inf
 
         self.train_dataset = None
         self.train_dataloader = None
@@ -378,13 +368,10 @@ class SDFDataset(Dataset):
         return self.total_length
 
     def __getitem__(self, _idx: int) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
-        file_idx = None
         for file_idx, cumulative_length in enumerate(self.cumulative_length):
             if _idx < cumulative_length:
                 file_idx -= 1
                 break
-
-        assert file_idx is not None
 
         data = np.load(self.data_path[file_idx])
 
