@@ -579,10 +579,10 @@
         }
 
         // eventlisteners of transform_controls
-        transform_controls.addEventListener("objectChange", on_objectchange);
+        transform_controls.addEventListener("objectChange", on_object_change);
         transform_controls.addEventListener("dragging-changed", on_dragging_changed);
 
-        function on_objectchange(event) {
+        function on_object_change(event) {
             if (selected_shape.length === 0 || !first_selected_latent_shape) {
                 return;
             }
