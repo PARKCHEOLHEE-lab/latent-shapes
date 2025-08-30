@@ -26,7 +26,7 @@ class LatentShapes(nn.Module):
             assert torch.all(self.noise >= noise_min)
             assert torch.all(self.noise <= noise_max)
 
-        # initialize latent shapes with noise
+        # initialize latent shapes with noise to multi-vector embeddings
         self.embedding = nn.Parameter(latent_shapes + self.noise)
 
     def forward(self, class_number: torch.Tensor) -> torch.Tensor:
