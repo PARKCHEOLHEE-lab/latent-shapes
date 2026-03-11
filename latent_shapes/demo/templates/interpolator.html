@@ -46,12 +46,12 @@
         #sidebar-right table {
             width: 100%;
         }
-        
+
         #sidebar-right td:nth-child(1) {
             text-align: right;
             padding-right: 10px;
         }
-        
+
         #sidebar-right td:nth-child(3) {
             text-align: left;
             padding-left: 10px;
@@ -230,6 +230,11 @@
                 <td><label>esc</label></td>
                 <td><label>=</label></td>
                 <td><label>deselection</label></td>
+            </tr>
+            <tr>
+                <td><label>r</label></td>
+                <td><label>=</label></td>
+                <td><label>reset camera</label></td>
             </tr>
         </table>
     </div>
@@ -432,6 +437,7 @@
 
         window.load_random_shape = load_random_shape;
         window.reconstruct = reconstruct;
+        window.reset_camera = reset_camera;
 
         // initialize sidebar-left
         const resolution_slider = document.getElementById("resolution_slider");
@@ -489,6 +495,8 @@
                 for (const vertex of latent_shape) {
                     vertex.material.color.set(LATENT_SHAPE_SPHERE_COLOR)
                 }
+            } else if (event.key && event.key.toLowerCase() === "r") {
+                reset_camera();
             }
         }
 
@@ -844,7 +852,7 @@
 
                 const duration = (performance.now() - start_time).toFixed(3);
                 document.getElementById("duration").innerHTML = `Duration: <strong>${duration}ms</strong>`;
-                
+
                 selected_shape = [];
                 selected_indices = [];
                 transform_controls.detach();
@@ -858,6 +866,13 @@
             for (const child of reconstructed.children) {
                 child.visible = checked;
             }
+        }
+
+        function reset_camera() {
+            camera.position.set(18.5, 5.5, -18.5);
+            orbit_controls.target.set(0, 0, 0);
+            orbit_controls.update();
+            render();
         }
 
         function render() {
