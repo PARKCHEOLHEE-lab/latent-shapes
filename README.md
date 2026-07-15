@@ -1,4 +1,4 @@
-# Latent Shapes
+# Latent Shapes [<img src="latent_shapes/assets/external-link.svg" width="25" height="25" alt="open the demo in new tab" />](https://parkcheolhee-lab.github.io/latent-shapes/)
 
 <div align="justify">
   In the best of my knowledge, latent vectors are initialized from a normal distribution and then updated during training to minimize the loss.
@@ -60,6 +60,16 @@ This repository uses the [image](/.devcontainer/Dockerfile) named `nvcr.io/nvidi
 ### demo
 - `templates/interpolator.html`: Interface to see and manipulate the latent shapes
 - `app.py`: FastAPI-based api server
+- `export_onnx.py`: Exporting the trained decoder to ONNX for the in-browser demo
+- `export_latent_shapes.py`: Exporting the latent shapes to JSON for the in-browser demo
+- `tests`, `tests_js`: Parity tests between the Python pipeline and the browser port
+
+
+### docs
+- `index.html`: Static in-browser demo, servable with GitHub Pages
+- `js/`: Browser-side reconstruction pipeline (ONNX inference worker, adaptive marching cubes)
+- `models/decoder.onnx`: Trained decoder exported to ONNX
+- `data/latent_shapes.json`: Precomputed latent shapes the demo starts from
 
 
 ### runs
@@ -89,8 +99,21 @@ This repository uses the [image](/.devcontainer/Dockerfile) named `nvcr.io/nvidi
 
 
 # Demo
+
+### In the browser
+
 <div align="justify">
-  The demo can run on both CPU and GPU. However, CPU inference is significantly slower. For reference, using RTX 3060 Laptop GPU at 80 for resolution, mesh reconstruction took approximately 1500ms. To run the demo, execute the <code>app.py</code> after changing the directory to the <code>latent_shapes/demo</code>. 
+  The demo runs entirely in your browser — nothing to install and no server: <strong><a href="https://parkcheolhee-lab.github.io/latent-shapes/">try it here</a></strong>.
+  The trained decoder is exported to ONNX and executed client-side by <code>onnxruntime-web</code>, on WebGPU when the browser supports it and on WASM otherwise.
+  Reconstruction samples the SDF coarse-to-fine, refining only the cells near the surface, so the mesh appears within a second and sharpens progressively while the rest computes.
+</div>
+
+<br>
+
+### Running locally
+
+<div align="justify">
+  The local demo can run on both CPU and GPU. However, CPU inference is significantly slower. For reference, using RTX 3060 Laptop GPU at 80 for resolution, mesh reconstruction took approximately 1500ms. To run the demo, execute the <code>app.py</code> after changing the directory to the <code>latent_shapes/demo</code>. 
 </div>
 
 <br>
@@ -120,4 +143,17 @@ This repository uses the [image](/.devcontainer/Dockerfile) named `nvcr.io/nvidi
     interpolator.html
     </i>
   </p>
+</div>
+
+<br><br>
+
+# Limitations and Future Works
+
+<div align="justify">
+  The most critical limitation is that the latent shape vertices do not understand shapes at the semantic part level.
+  Each of the 98 vertices is a purely geometric handle over a nearby region of space — no vertex corresponds to a part a person would name, such as the backrest, an armrest, or a leg.
+  As a result, editing a specific part is indirect: you have to discover which vertices influence it by trial and error, and a single drag can also deform neighboring parts you did not intend to touch.
+  <br><br>
+  A promising future work is making the latent shape part-aware — for example, aligning vertices (or groups of them) with semantic part annotations such as <a href="https://partnet.cs.stanford.edu/">PartNet</a>, or learning the grouping directly, so that grabbing "the armrest" moves exactly the vertices that encode it.
+  This would turn the interaction from space-level dragging into part-level editing.
 </div>

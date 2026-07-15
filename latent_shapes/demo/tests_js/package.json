@@ -1,0 +1,7 @@
+{
+  "private": true,
+  "description": "Dev-only: onnxruntime-node lets the KR7 end-to-end test run decoder.onnx in node (the browser uses onnxruntime-web).",
+  "devDependencies": {
+    "onnxruntime-node": "^1.20.0"
+  }
+}
