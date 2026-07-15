@@ -24,80 +24,6 @@
 
 <br><br>
 
-# Installation
-
-This repository uses the [image](/.devcontainer/Dockerfile) named `nvcr.io/nvidia/pytorch:23.10-py3` for running devcontainer.
-
-
-1. Ensure you have Docker and Visual Studio Code with the Remote - Containers extension installed.
-2. Clone the repository.
-
-    ```
-        git clone https://github.com/PARKCHEOLHEE-lab/latent-shapes.git
-    ```
-
-3. Open the project with VSCode.
-4. When prompted at the bottom left on the VSCode, click `Reopen in Container` or use the command palette (F1) and select `Remote-Containers: Reopen in Container`.
-5. VS Code will build the Docker container and set up the environment.
-6. Once the container is built and running, you're ready to start working with the project.
-
-
-<br><br>
-
-
-# File Details
-### data
-> [!NOTE]
-> In this project, the Chair dataset (03001627) from ShapeNetCore was used. You can access the original data [here](https://huggingface.co/datasets/ShapeNet/ShapeNetCore)
-
-  - Directory structure
-    - `/root/latent-shapes/latent_shapes/data/03001627`
-      - `1a6f615e8b1b5ae4dbbc9440457e303e`
-      - `1a74a83fa6d24b3cacd67ce2c72c02e`<br><br>
-      ( ... )
-
-
-### demo
-- `templates/interpolator.html`: Interface to see and manipulate the latent shapes
-- `app.py`: FastAPI-based api server
-- `export_onnx.py`: Exporting the trained decoder to ONNX for the in-browser demo
-- `export_latent_shapes.py`: Exporting the latent shapes to JSON for the in-browser demo
-- `tests`, `tests_js`: Parity tests between the Python pipeline and the browser port
-
-
-### docs
-- `index.html`: Static in-browser demo, servable with GitHub Pages
-- `js/`: Browser-side reconstruction pipeline (ONNX inference worker, adaptive marching cubes)
-- `models/decoder.onnx`: Trained decoder exported to ONNX
-- `data/latent_shapes.json`: Precomputed latent shapes the demo starts from
-
-
-### runs
-- `08-02-2025__17-36-23`
-  - `src`: Used source codes for training 
-  - `events.out.tfevents.*`: TensorBoard event file containing metrics and logs trained using all data.
-  - `states.pt`: Saved model checkpoint containing trained model weights and states trained using all data.
-
-  - You can use the command below:
-    ```
-      tensorboard --logdir=latent_shapes/runs/08-02-2025__17-36-23
-    ```
-
-
-### src
-- `bounds.py`: Computing bounds containing all data
-- `config.py`: Configuration file containing hyperparameters, constants, etc 
-- `data.py`: Data loading and preprocessing utilities
-- `model.py`: Definition of DeepSDF-based decoder, Latent Shape
-- `train.py`: Main code to train the models
-- `trainer.py`: Training loop and evaluation code for the models
-
-
-
-<br><br>
-
-
-
 # Demo
 
 ### In the browser
@@ -144,6 +70,27 @@ This repository uses the [image](/.devcontainer/Dockerfile) named `nvcr.io/nvidi
     </i>
   </p>
 </div>
+
+<br><br>
+
+
+# Installation
+
+This repository uses the [image](/.devcontainer/Dockerfile) named `nvcr.io/nvidia/pytorch:23.10-py3` for running devcontainer.
+
+
+1. Ensure you have Docker and Visual Studio Code with the Remote - Containers extension installed.
+2. Clone the repository.
+
+    ```
+        git clone https://github.com/PARKCHEOLHEE-lab/latent-shapes.git
+    ```
+
+3. Open the project with VSCode.
+4. When prompted at the bottom left on the VSCode, click `Reopen in Container` or use the command palette (F1) and select `Remote-Containers: Reopen in Container`.
+5. VS Code will build the Docker container and set up the environment.
+6. Once the container is built and running, you're ready to start working with the project.
+
 
 <br><br>
 
