@@ -12,27 +12,64 @@
         }
     </script>
     <style>
+        /* PARKCHEOLHEE-lab.github.io design system (free-form-floor-plan / voronoi theme).
+           PT Sans is vendored offline in ./fonts (no CDN) — GitHub Pages ships them directly. */
+        @font-face {
+            font-family: "PT Sans";
+            src: local("PT Sans"), local("PTSans-Regular"), url("./fonts/PTSans-Regular.woff") format("woff");
+            font-weight: 400; font-style: normal; font-display: swap;
+        }
+        @font-face {
+            font-family: "PT Sans";
+            src: local("PT Sans Bold"), local("PTSans-Bold"), url("./fonts/PTSans-Bold.woff") format("woff");
+            font-weight: 700; font-style: normal; font-display: swap;
+        }
+
+        :root {
+            --font: "PT Sans", -apple-system, "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+            --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            --dark: #000;
+            --light: #fff;
+            --text-dark: #000;
+            --link: #66a1ff;
+            --featured: #0011e3;   /* signature blue */
+            --bg-subtle: #f7f7f8;
+            --divider: #e5e5e6;
+            --reduce-14: rgba(128, 128, 128, 0.14);
+            --reduce-30: rgba(128, 128, 128, 0.30);
+            --reduce-90: rgba(128, 128, 128, 0.90);
+        }
+
         body {
             margin: 0;
             padding: 0;
             overflow: hidden;
-            font-family: Arial, sans-serif;
+            font-family: var(--font);
+            color: var(--text-dark);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
+        /* one restrained load reveal (mirrors the reference site's @keyframes rise) */
+        @keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+        @media (prefers-reduced-motion: reduce) {
+            #sidebar-left, #sidebar-right { animation: none; }
+        }
+
+        /* docked left column: one half of the split screen (the viewport #container is the other) */
         #sidebar-left {
             position: fixed;
-            left: 20px;
-            top: 20px;
-            width: 280px;
-            max-height: calc(100vh - 40px);
-            background: rgba(248, 249, 250, 0.95);
-            backdrop-filter: blur(10px);
-            border: 1px solid #e0e0e0;
-            border-radius: 12px;
+            left: 0;
+            top: 0;
+            width: 300px;
+            height: 100vh;
+            background: var(--light);
+            border-right: 1px solid var(--divider);
             z-index: 1000;
             padding: 20px;
             box-sizing: border-box;
             overflow-y: auto;
+            animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
         }
 
         #sidebar-right {
@@ -42,6 +79,9 @@
             width: 200px;
             text-align: left;
             z-index: 1000;
+            color: var(--text-dark);
+            animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+            animation-delay: 0.08s;
         }
 
         #sidebar-right table {
@@ -58,25 +98,26 @@
             padding-left: 10px;
         }
 
+        /* flat sections: the panel is the only card — sections split by spacing, not nested boxes */
         .control-group {
-            margin-bottom: 25px;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.8);
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
+            margin-bottom: 22px;
+        }
+
+        .control-group:last-child {
+            margin-bottom: 0;
         }
 
         .control-group h3 {
-            margin: 0 0 15px 0;
-            font-size: 14px;
-            font-weight: 600;
-            color: #333;
+            margin: 0 0 14px 0;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--reduce-90);
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.07em;
         }
 
         .control-item {
-            margin-bottom: 15px;
+            margin-bottom: 14px;
         }
 
         .control-item:last-child {
@@ -86,44 +127,51 @@
         label {
             display: block;
             margin-bottom: 8px;
-            font-size: 13px;
-            font-weight: 500;
-            color: #555;
+            font-size: 14px;
+            font-weight: 400;
+            color: var(--text-dark);
         }
 
+        /* slider + its value share one row (value to the right, as in the reference) */
         .slider-container {
-            position: relative;
+            display: flex;
+            align-items: center;
+            gap: 10px;
         }
 
         .slider {
-            width: 100%;
-            height: 6px;
+            flex: 1 1 auto;
+            min-width: 0;
+            height: 4px;
             border-radius: 3px;
-            background: #e0e0e0;
+            background: var(--reduce-30);
             outline: none;
             appearance: none;
-            margin-bottom: 8px;
+            -webkit-appearance: none;
         }
 
         .slider::-webkit-slider-thumb {
             appearance: none;
-            width: 18px;
-            height: 18px;
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
             border-radius: 50%;
-            background: #0000ff;
+            background: var(--dark);
             cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            transition: transform 0.1s;
+        }
+
+        .slider:not(:disabled)::-webkit-slider-thumb:hover {
+            transform: scale(1.18);
         }
 
         .slider::-moz-range-thumb {
-            width: 18px;
-            height: 18px;
+            width: 14px;
+            height: 14px;
+            border: none;
             border-radius: 50%;
-            background: #0000ff;
+            background: var(--dark);
             cursor: pointer;
-            border: 2px solid white;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         /* locked during a reconstruct: match the gray of the locked cage vertices */
@@ -138,9 +186,11 @@
         }
 
         .slider-value {
-            font-size: 12px;
-            color: #666;
-            text-align: center;
+            font-family: var(--mono);
+            font-size: 13px;
+            color: var(--dark);
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
         }
 
         .checkbox-container {
@@ -149,57 +199,107 @@
             gap: 8px;
         }
 
+        /* bordered box with a black check (appearance:none so it reads on the flat surface) */
         .checkbox {
+            appearance: none;
+            -webkit-appearance: none;
+            margin: 0;
             width: 16px;
             height: 16px;
-            accent-color: #0000ff;
+            flex: none;
+            border: 1px solid var(--reduce-30);
+            border-radius: 4px;
+            background: transparent;
+            cursor: pointer;
+            position: relative;
         }
 
+        .checkbox:hover {
+            background: var(--reduce-14);
+        }
+
+        .checkbox:checked::after {
+            content: "";
+            position: absolute;
+            left: 50%;
+            top: 46%;
+            width: 4px;
+            height: 8px;
+            border: solid #000;
+            border-width: 0 2px 2px 0;
+            transform: translate(-50%, -60%) rotate(45deg);
+        }
+
+        /* flat buttons: base = Load (bordered), primary = signature-black (reconstruct ready),
+           secondary = muted (no shape loaded). Class swaps are driven by updateReconstructButton(). */
         .btn {
             width: 100%;
-            padding: 12px 16px;
+            padding: 0.62em 1em;
             margin-bottom: 10px;
-            background: #0000ff;
-            color: white;
-            border: none;
-            border-radius: 6px;
+            background: transparent;
+            color: var(--text-dark);
+            border: 1px solid var(--reduce-30);
+            border-radius: 4px;
+            font-family: var(--font);
             font-size: 14px;
-            font-weight: 500;
+            font-weight: 400;
             cursor: pointer;
-            transition: background-color 0.2s;
+            transition: background 0.12s, border-color 0.12s, opacity 0.12s;
         }
 
         .btn:hover:not(:disabled) {
-            opacity: 0.7
+            background: var(--reduce-14);
         }
 
         .btn:disabled {
-            background: #6c757d;
+            opacity: 0.4;
             cursor: not-allowed;
         }
 
         .btn.secondary {
-            background: #6c757d;
+            color: var(--reduce-90);
         }
 
         .btn.secondary:hover:not(:disabled) {
-            opacity: 0.7
+            background: var(--reduce-14);
         }
 
         .btn.primary {
-            background: #0000ff;
+            background: var(--dark);
+            border-color: var(--dark);
+            color: var(--light);
         }
 
         .btn.primary:hover:not(:disabled) {
-            opacity: 0.7
+            background: var(--dark);
+            opacity: 0.85;
         }
 
+        /* States readout: dark labels, monospace tabular values (the <strong> spans set by JS) */
+        #sidebar-left p {
+            margin: 0 0 6px 0;
+            font-size: 13px;
+            line-height: 1.5;
+            color: var(--text-dark);
+        }
+
+        #sidebar-left p:last-child {
+            margin-bottom: 0;
+        }
+
+        #sidebar-left strong {
+            font-family: var(--mono);
+            font-variant-numeric: tabular-nums;
+            color: var(--dark);
+        }
+
+        /* the 3D viewport pane: fills the screen to the right of the docked panel */
         #container {
-            width: 100vw;
-            height: 100vh;
             position: fixed;
-            left: 0;
+            left: 300px;
             top: 0;
+            right: 0;
+            bottom: 0;
         }
 
         .loading {
@@ -210,12 +310,23 @@
         .btn.loading {
             opacity: 0.5;
             cursor: not-allowed;
-            background: #6c757d !important;
+        }
+
+        /* mid-run the reconstruct button is a live Stop control — red, and kept clickable */
+        .btn.stop {
+            background: #dc3545;
+            border-color: #dc3545;
+            color: #fff;
+        }
+        .btn.stop:hover:not(:disabled) {
+            background: #dc3545;
+            border-color: #dc3545;
+            opacity: 0.85;
         }
 
         .select_box {
-            border: 1px solid #ccc;
-            background-color: rgba(255, 255, 255, 0.2);
+            border: 1px solid var(--reduce-30);
+            background-color: rgba(0, 17, 227, 0.08);
             position: fixed;
         }
     </style>
@@ -338,11 +449,11 @@
         // thread, so dragging and rendering stay responsive during a reconstruct.
         // ?v= busts stale HTTP-cache copies of the module chain (bump on js/ changes);
         // a mixed fresh/stale module graph silently corrupts the pipeline.
-        const _worker = new Worker("./js/reconstruct_worker.js?v=6", { type: "module" });
+        const _worker = new Worker("./js/reconstruct_worker.js?v=8", { type: "module" });
         const _pending = new Map();
         let _reqId = 0;
         _worker.onmessage = (event) => {
-            const { id, result, error, diag, progress } = event.data;
+            const { id, result, error, cancelled, diag, progress } = event.data;
             if (diag) {
                 window.__lastDiag = diag;
                 console.log(`[reconstruct] provider=${diag.provider} session=${diag.sessionMs}ms compute=${diag.reconstructMs}ms`);
@@ -355,6 +466,7 @@
             }
             _pending.delete(id);
             if (error) p.reject(new Error(error));
+            else if (cancelled) p.resolve({ cancelled: true }); // user Stop — resolve, don't reject
             else p.resolve(result);
         };
         _worker.onerror = (event) => {
@@ -370,6 +482,12 @@
                 _pending.set(id, { resolve, reject, onProgress });
                 _worker.postMessage({ id, params });
             });
+        }
+
+        // Cooperative stop: the worker aborts its run at the next chunk (~one chunk away) and
+        // keeps its warm ONNX session, so the following reconstruct is still fast.
+        function cancelReconstruct() {
+            _worker.postMessage({ cancel: true });
         }
 
         const LATENT_SHAPE = "latent_shape"
@@ -406,13 +524,16 @@
             }
         )
 
-        const RECONSTRUCTED_MESH_WIREFRAME_MATERIAL = new THREE.MeshBasicMaterial(
+        // Marching cubes emits tens of thousands of tiny triangles; drawing every triangle
+        // edge (the old wireframe:true) reads as noise at high resolution. Instead show only
+        // FEATURE edges via EdgesGeometry — creases sharper than this angle — so the surface
+        // structure stays legible at any resolution. Higher angle = fewer, cleaner lines.
+        const RECONSTRUCTED_MESH_EDGE_ANGLE = 28; // degrees
+        const RECONSTRUCTED_MESH_EDGES_MATERIAL = new THREE.LineBasicMaterial(
             {
                 color: 0x242424,
                 transparent: true,
-                opacity: 0.2,
-                wireframe: true,
-                side: THREE.DoubleSide,
+                opacity: 0.45, // fewer lines than the old all-triangles wireframe, so a bit more opaque
             }
         )
 
@@ -426,11 +547,42 @@
             }
         )
 
-        // faces-only look while the wireframe is hidden: the 5%-opacity ghost above
-        // is unreadable on its own, so the solid swaps to this lit opaque material
-        const RECONSTRUCTED_MESH_SOLID_MATERIAL = new THREE.MeshLambertMaterial(
+        // faces-only look while the wireframe is hidden: the 5%-opacity ghost above is
+        // unreadable on its own, so the solid swaps to this white "shaded clay" material.
+        // A matcap bakes soft studio shading into a white surface, so the form reads on the
+        // white background without the flat gray tint the old 0xd8d8d8 Lambert had — and it
+        // needs no scene lights. The matcap image is generated in-page (a radial gradient),
+        // so nothing external ships.
+        function makeReconstructedMatcap() {
+            const c = document.createElement("canvas");
+            c.width = c.height = 256;
+            const x = c.getContext("2d");
+            const g = x.createRadialGradient(98, 92, 18, 128, 128, 168); // light from upper-left
+            g.addColorStop(0.0, "#ffffff");
+            g.addColorStop(0.35, "#f1f3f5");
+            g.addColorStop(0.62, "#ccd1d8");
+            g.addColorStop(0.84, "#989fab");
+            g.addColorStop(1.0, "#6c727f"); // darker rim so the white form clearly reads as shaded 3D
+            x.fillStyle = g;
+            x.fillRect(0, 0, 256, 256);
+            return new THREE.CanvasTexture(c);
+        }
+        const RECONSTRUCTED_MATCAP = makeReconstructedMatcap();
+        const RECONSTRUCTED_MESH_SOLID_MATERIAL = new THREE.MeshMatcapMaterial(
             {
-                color: 0xd8d8d8,
+                matcap: RECONSTRUCTED_MATCAP,
+                side: THREE.DoubleSide,
+            }
+        )
+        // wireframe-on surface: the same clay made translucent, so the 28-degree edge lines sit
+        // clearly on top instead of vanishing against an opaque surface (the look picked in the
+        // wireframe-mode comparison). Toggling wireframe now only changes opacity + the lines,
+        // so the surface no longer disappears between the two modes.
+        const RECONSTRUCTED_MESH_TRANSLUCENT_MATERIAL = new THREE.MeshMatcapMaterial(
+            {
+                matcap: RECONSTRUCTED_MATCAP,
+                transparent: true,
+                opacity: 0.4,
                 side: THREE.DoubleSide,
             }
         )
@@ -496,12 +648,19 @@
         scene.add(new THREE.HemisphereLight(0xffffff, 0xbfbfbf, 1.0));
 
         // set renderer
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-        document.getElementById("container").appendChild(renderer.domElement);
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        // Render at the display's native resolution (e.g. Retina 2x), capped at 2x for GPU cost.
+        // Without this the canvas renders at 1x and the browser upscales it -> soft, low-res
+        // viewport and jaggy wireframe lines. antialias smooths the edges on top of that.
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        // the canvas is the right-hand pane (not the whole window) now that the panel is docked;
+        // size the renderer + camera to that pane, and mouse-picking re-scopes to it via pointerToNDC()
+        const container = document.getElementById("container");
+        renderer.setSize(container.clientWidth, container.clientHeight);
+        container.appendChild(renderer.domElement);
 
         // create camera
-        const camera = new THREE.PerspectiveCamera(5, window.innerWidth/window.innerHeight, 0.1, 1000);
+        const camera = new THREE.PerspectiveCamera(5, container.clientWidth/container.clientHeight, 0.1, 1000);
         camera.position.x = 18.5;
         camera.position.y = 5.5;
         camera.position.z = -18.5;
@@ -602,6 +761,16 @@
             }
         }
 
+        // mouse position -> normalized device coords within the viewport pane (the canvas),
+        // not the whole window — so box-selection stays aligned with the docked-panel layout
+        function pointerToNDC(event) {
+            const r = renderer.domElement.getBoundingClientRect();
+            return {
+                x: ((event.clientX - r.left) / r.width) * 2 - 1,
+                y: -((event.clientY - r.top) / r.height) * 2 + 1,
+            };
+        }
+
         function on_pointerdown(event) {
             is_mouse_down = true;
 
@@ -609,11 +778,8 @@
                 return
             }
 
-            selection_box.startPoint.set(
-                (event.clientX / window.innerWidth) * 2 - 1,
-                -(event.clientY / window.innerHeight) * 2 + 1,
-                0.5
-            );
+            const ndc = pointerToNDC(event);
+            selection_box.startPoint.set(ndc.x, ndc.y, 0.5);
         }
 
         function on_pointerup(event) {
@@ -623,11 +789,8 @@
                 return;
             }
 
-            selection_box.endPoint.set(
-                (event.clientX / window.innerWidth) * 2 - 1,
-                -(event.clientY / window.innerHeight) * 2 + 1,
-                0.5
-            );
+            const ndc = pointerToNDC(event);
+            selection_box.endPoint.set(ndc.x, ndc.y, 0.5);
 
             const selections = selection_box.select();
 
@@ -673,9 +836,9 @@
         }
 
         function on_window_resize() {
-            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.aspect = container.clientWidth / container.clientHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setSize(container.clientWidth, container.clientHeight);
         }
 
         // eventlisteners of transform_controls
@@ -764,7 +927,20 @@
             return mesh
         }
 
+        // Feature-edge wireframe for the reconstructed mesh (see RECONSTRUCTED_MESH_EDGE_ANGLE):
+        // only creases sharper than the threshold, not every marching-cubes triangle. Built from
+        // the solid mesh's own geometry, so it reuses the vertices and adds no new mesh data.
+        function create_reconstructed_edges(geometry) {
+            const edges = new THREE.LineSegments(
+                new THREE.EdgesGeometry(geometry, RECONSTRUCTED_MESH_EDGE_ANGLE),
+                RECONSTRUCTED_MESH_EDGES_MATERIAL,
+            );
+            edges.name = RECONSTRUCTED_MESH_WIREFRAME;
+            return edges;
+        }
+
         function updateReconstructButton() {
+            if (is_reconstructing) return; // don't clobber the live "Stop" state; a late load-finish can fire mid-run
             const reconstruct_button = document.getElementById("reconstruct_button");
             if (latent_shape.length > 0) {
                 reconstruct_button.classList.remove("secondary");
@@ -840,12 +1016,18 @@
         }
 
         async function reconstruct() {
+            if (is_reconstructing) { // the button is showing "Stop" -> cancel the running job
+                cancelReconstruct();
+                return;
+            }
             if (latent_shape.length === 0) {
                 alert("There is no latent shape to reconstruct");
                 return;
             }
 
             const start_time = performance.now(); // Add this line at the beginning
+            let was_cancelled = false;
+            let last_preview = null; // most recent progressive preview, kept so Stop can freeze this frame
 
             const load_random_shape_button = document.getElementById("load_random_shape_button");
             const reconstruct_button = document.getElementById("reconstruct_button");
@@ -857,11 +1039,12 @@
             const original_class = reconstruct_button.classList.contains("primary") ? "primary" : "secondary";
 
             load_random_shape_button.disabled = true;
-            reconstruct_button.disabled = true;
             load_random_shape_button.classList.add("loading");
-            reconstruct_button.classList.add("loading");
+            // the reconstruct button becomes a live "Stop" control (kept clickable) so the run
+            // can be cancelled mid-flight
+            reconstruct_button.textContent = "Stop";
             reconstruct_button.classList.remove(original_class);
-            reconstruct_button.classList.add("disabled");
+            reconstruct_button.classList.add("stop");
 
             // lock the cage: gray vertices, drop the selection, block dragging
             // (the resolution too — mid-run changes wouldn't affect the running job)
@@ -882,6 +1065,7 @@
             const duration_element = document.getElementById("duration");
             const on_progress = (progress) => {
                 if (progress.preview) {
+                    last_preview = progress.preview; // remember it so Stop can render this frame
                     clear_scene(RECONSTRUCTION_MODE); // replace the previous preview
                     const preview_vertices = progress.preview.vertices.map(vertex => [vertex[0], vertex[2], vertex[1]]);
                     // unchanged parts wear the final mesh's style...
@@ -889,9 +1073,7 @@
                         const preview_solid = create_mesh(preview_vertices, progress.preview.faces_base, RECONSTRUCTED_MESH_MATERIAL);
                         preview_solid.name = RECONSTRUCTED_MESH;
                         reconstructed.add(preview_solid);
-                        const preview_wireframe = create_mesh(preview_vertices, progress.preview.faces_base, RECONSTRUCTED_MESH_WIREFRAME_MATERIAL);
-                        preview_wireframe.name = RECONSTRUCTED_MESH_WIREFRAME;
-                        reconstructed.add(preview_wireframe);
+                        reconstructed.add(create_reconstructed_edges(preview_solid.geometry));
                     }
                     // ...and only the freshly refined parts get the highlight style
                     if (progress.preview.faces_changed.length > 0) {
@@ -929,11 +1111,23 @@
                     rescale: current_rescale,
                     mapZToY: current_map_z_to_y,
                 }, on_progress);
-                const result_data = result
-                    ? { vertices: result.vertices, faces: result.faces, edges: [] }
-                    : { message: "SDF never crosses the iso-level for this latent shape" };
+                let result_data;
+                if (result && result.cancelled) {
+                    was_cancelled = true;
+                    // freeze the mesh at the moment of stopping: the last preview, drawn as a
+                    // clean final-style mesh (base + freshly-refined faces merged, no highlight)
+                    result_data = last_preview
+                        ? { vertices: last_preview.vertices, faces: last_preview.faces_base.concat(last_preview.faces_changed), edges: [] }
+                        : { stopped_empty: true };
+                } else {
+                    result_data = result
+                        ? { vertices: result.vertices, faces: result.faces, edges: [] }
+                        : { message: "SDF never crosses the iso-level for this latent shape" };
+                }
 
-                if (
+                if (result_data.stopped_empty) {
+                    clear_scene(RECONSTRUCTION_MODE); // stopped before any mesh existed
+                } else if (
                     result_data.vertices
                     && result_data.faces
                     && result_data.edges
@@ -952,14 +1146,9 @@
                         RECONSTRUCTED_MESH_MATERIAL
                     )
 
-                    const reconstructed_mesh_wireframe = create_mesh(
-                        reconstructed_mesh_vertices,
-                        result_data.faces,
-                        RECONSTRUCTED_MESH_WIREFRAME_MATERIAL
-                    )
+                    const reconstructed_mesh_wireframe = create_reconstructed_edges(reconstructed_mesh.geometry)
 
                     reconstructed_mesh.name = RECONSTRUCTED_MESH;
-                    reconstructed_mesh_wireframe.name = RECONSTRUCTED_MESH_WIREFRAME;
                     reconstructed.add(reconstructed_mesh)
                     reconstructed.add(reconstructed_mesh_wireframe)
                     scene.add(reconstructed);
@@ -979,12 +1168,14 @@
                 load_random_shape_button.disabled = false;
                 reconstruct_button.disabled = false;
                 load_random_shape_button.classList.remove("loading");
-                reconstruct_button.classList.remove("loading");
-                reconstruct_button.classList.remove("disabled");
+                reconstruct_button.classList.remove("loading", "disabled", "stop");
+                reconstruct_button.textContent = "Reconstruct";
                 reconstruct_button.classList.add(original_class);
 
                 const duration = (performance.now() - start_time).toFixed(3);
-                document.getElementById("duration").innerHTML = `Duration: <strong>${duration}ms</strong>`;
+                document.getElementById("duration").innerHTML = was_cancelled
+                    ? "Duration: <strong>stopped</strong>"
+                    : `Duration: <strong>${duration}ms</strong>`;
 
                 // unlock the cage
                 is_reconstructing = false;
@@ -1005,15 +1196,15 @@
             for (const child of reconstructed.children) {
                 child.visible = checked && (child.name !== RECONSTRUCTED_MESH_WIREFRAME || show_wireframe);
                 if (child.name === RECONSTRUCTED_MESH) {
-                    if (show_wireframe) {
-                        child.material = RECONSTRUCTED_MESH_MATERIAL;
-                    } else {
-                        // Lambert shading needs normals; create_mesh doesn't add them
-                        if (!child.geometry.getAttribute("normal")) {
-                            child.geometry.computeVertexNormals();
-                        }
-                        child.material = RECONSTRUCTED_MESH_SOLID_MATERIAL;
+                    // both looks are the clay matcap — translucent with the wireframe (so the
+                    // edges read on top), opaque without. Matcap shading needs normals, and
+                    // create_mesh doesn't add them.
+                    if (!child.geometry.getAttribute("normal")) {
+                        child.geometry.computeVertexNormals();
                     }
+                    child.material = show_wireframe
+                        ? RECONSTRUCTED_MESH_TRANSLUCENT_MATERIAL
+                        : RECONSTRUCTED_MESH_SOLID_MATERIAL;
                 }
             }
         }

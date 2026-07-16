@@ -10,7 +10,7 @@ import * as ort from "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.27.0/dist/o
 import {
   localReconstruct, swapYZ, postProcessMesh, mapMeshToClient,
   DECODER_INPUT_DIM, MC_LEVEL,
-} from "./latent_backend.js?v=5";
+} from "./latent_backend.js?v=6";
 import { marchingCubes } from "./marching_cubes.js?v=3";
 
 // GitHub Pages can't send COOP/COEP, so SharedArrayBuffer threads are unavailable.
@@ -19,10 +19,19 @@ ort.env.wasm.numThreads = 1;
 // Feeding a CONSTANT input shape is the key perf fix: it lets ORT compile the
 // WebGPU pipelines ONCE (cached + graph-captured) instead of recompiling every
 // run, which is the likely cause of the ~45s. Every batch is padded to this size.
-const FIXED_BATCH = 65536;
+// lazy: 16384 (was 65536) trades ~2x total reconstruct time for a much sooner first
+//   mesh + smoother reveal. Measured R=128: first mesh 1023->241ms, reveal steps 5->15,
+//   total 8867->18245ms. The small batch is GPU-inefficient on the fine level (that is the
+//   2x). Upgrade path if total time matters: per-level batch — small for the coarse levels
+//   (sooner first mesh), large for the fine level (fast total).
+const FIXED_BATCH = 16384;
 
 let sessionPromise = null;
 let usedProvider = null;
+// Set by a {cancel:true} message (processed re-entrantly while a run awaits). The run's
+// onLevel/onChunk hooks check it and throw "CANCELLED", which localReconstruct propagates —
+// so the ONNX session stays warm (no worker restart) and the next reconstruct is fast.
+let cancelRequested = false;
 
 function getSession() {
   if (sessionPromise === null) {
@@ -72,10 +81,13 @@ async function runDecoder(input, N) {
 }
 
 self.onmessage = async (event) => {
+  if (event.data.cancel) { cancelRequested = true; return; } // stop the in-flight run
   const { id, params } = event.data;
+  cancelRequested = false; // fresh run
   try {
     const t0 = performance.now();
     await getSession();
+    if (cancelRequested) throw new Error("CANCELLED"); // stopped during (cold) session init
     const t1 = performance.now();
 
     // Progressive coarse-to-fine previews: after each non-final refinement level,
@@ -172,17 +184,29 @@ self.onmessage = async (event) => {
       });
     };
 
-    const onLevel = ({ field, resolution }) => postPreview(field, resolution);
+    // Both hooks fire between decoder chunks/levels, so checking cancelRequested here is how a
+    // Stop lands: the throw aborts localReconstruct at the next chunk boundary (~one chunk away).
+    const onLevel = ({ field, resolution }) => {
+      if (cancelRequested) throw new Error("CANCELLED");
+      postPreview(field, resolution);
+    };
     // per decoder chunk: counter tick, plus a live sharpening preview during the
     // final level (the longest phase used to freeze between level 2 and done)
     const onChunk = ({ level, levelCount, rowsDone, rowsTotal, field, resolution }) => {
+      if (cancelRequested) throw new Error("CANCELLED");
       self.postMessage({ id, progress: { level, levelCount, rowsDone, rowsTotal } });
       if (level === levelCount && rowsDone < rowsTotal) {
         postPreview(field, resolution);
       }
     };
 
-    const result = await localReconstruct({ ...params, onLevel, onChunk }, runDecoder);
+    // Responsiveness config (see the batch/level experiment): a coarser, deeper ladder
+    // (16^3 first level -> a mesh within ~250ms) plus a preview per FIXED_BATCH-row chunk
+    // (finer sharpening). chunkRows tracks FIXED_BATCH so a chunk always fits one padded run.
+    const result = await localReconstruct(
+      { ...params, chunkRows: FIXED_BATCH, maxLevels: 6, minLevelRes: 16, onLevel, onChunk },
+      runDecoder,
+    );
     const t2 = performance.now();
     self.postMessage({
       id, result,
@@ -193,6 +217,10 @@ self.onmessage = async (event) => {
       },
     });
   } catch (err) {
-    self.postMessage({ id, error: String(err && err.message ? err.message : err) });
+    if (err && err.message === "CANCELLED") {
+      self.postMessage({ id, cancelled: true }); // user Stop — a clean end, not an error
+    } else {
+      self.postMessage({ id, error: String(err && err.message ? err.message : err) });
+    }
   }
 };

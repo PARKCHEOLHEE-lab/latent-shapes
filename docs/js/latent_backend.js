@@ -110,12 +110,14 @@ export function postProcessMesh(vertices, latentCage, { rescale } = {}) {
 // caps peak input memory at 65536 * 297 * 4B ≈ 78 MB regardless of resolution.
 const CHUNK_ROWS = 65536;
 
-// Coarse-to-fine refinement ladder: halve the resolution down to >=16, max 3 levels.
-// Only cells near the surface at one level are re-evaluated at the next, which is
-// where the speedup comes from (the decoder is ~99% of reconstruction cost).
-function levelsFor(resolution) {
+// Coarse-to-fine refinement ladder: halve the resolution down to >=minLevelRes, up
+// to maxLevels levels. Only cells near the surface at one level are re-evaluated at
+// the next, which is where the speedup comes from (the decoder is ~99% of the cost).
+// maxLevels/minLevelRes default to the shipped values (3 / 16); callers can widen the
+// ladder (more, coarser levels) to trade total time for a sooner, smoother reveal.
+function levelsFor(resolution, maxLevels = 3, minLevelRes = 16) {
   const levels = [resolution];
-  while (levels.length < 3 && levels[0] % 2 === 0 && levels[0] / 2 >= 16) {
+  while (levels.length < maxLevels && levels[0] % 2 === 0 && levels[0] / 2 >= minLevelRes) {
     levels.unshift(levels[0] / 2);
   }
   return levels;
@@ -197,7 +199,7 @@ function buildNextMask(field, R, nextR, bounds) {
 // previous level (nearest-sample fill keeps signs consistent, so marching cubes
 // cannot invent surfaces in unrefined regions).
 async function evalLevelField(
-  R, cageFlat, runDecoder, bounds, cellMask, prevField, prevR, onChunkRows,
+  R, cageFlat, runDecoder, bounds, cellMask, prevField, prevR, onChunkRows, chunkRows = CHUNK_ROWS,
 ) {
   const xs = linspace(bounds.min[0], bounds.max[0], R);
   const ys = linspace(bounds.min[1], bounds.max[1], R);
@@ -237,8 +239,8 @@ async function evalLevelField(
   }
 
   const total = points ? points.length : n;
-  for (let s = 0; s < total; s += CHUNK_ROWS) {
-    const rows = Math.min(CHUNK_ROWS, total - s);
+  for (let s = 0; s < total; s += chunkRows) {
+    const rows = Math.min(chunkRows, total - s);
     const chunk = new Float32Array(rows * DECODER_INPUT_DIM);
     for (let r = 0; r < rows; r++) {
       const p = points ? points[s + r] : s + r;
@@ -263,6 +265,8 @@ export async function localReconstruct(
   {
     latentShapes, resolution, rescale = true, mapZToY = true,
     adaptive = true, onChunk = null, onLevel = null,
+    // Responsiveness tuning — defaults preserve the shipped behavior.
+    chunkRows = CHUNK_ROWS, maxLevels = 3, minLevelRes = 16,
   },
   runDecoder,
   bounds = BOUNDS,
@@ -276,7 +280,7 @@ export async function localReconstruct(
   // model.py:174-202, evaluated coarse-to-fine: the coarsest level samples the
   // whole grid; each finer level re-evaluates only near-surface cells and
   // inherits the rest. Point order within a level matches buildGrid.
-  const levels = adaptive ? levelsFor(R) : [R];
+  const levels = adaptive ? levelsFor(R, maxLevels, minLevelRes) : [R];
   let field = null;
   let prevR = 0;
   let cellMask = null;
@@ -290,6 +294,7 @@ export async function localReconstruct(
             field: liveField, resolution: levelR,
           })
         : null,
+      chunkRows,
     );
     if (li < levels.length - 1) {
       cellMask = buildNextMask(field, levelR, levels[li + 1], bounds);

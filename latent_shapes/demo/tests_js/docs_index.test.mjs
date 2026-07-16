@@ -31,9 +31,8 @@ test("docs/index.html removes the ensure_watertight control (no browser pcu)", (
   assert.ok(!html.includes("ensure_watertight"), "ensure_watertight must be removed");
 });
 
-test("docs/index.html keeps the faces-only look lit (wireframe off)", () => {
-  assert.ok(html.includes("MeshLambertMaterial"), "solid swaps to a lit material when the wireframe is hidden");
-  assert.ok(html.includes("HemisphereLight"), "scene must carry the light the lit material needs");
+test("docs/index.html gives the faces-only mode a shaded white surface (wireframe off)", () => {
+  assert.ok(html.includes("MeshMatcapMaterial"), "solid uses a shaded matcap (white clay) material when the wireframe is hidden");
 });
 
 test("docs/index.html offloads reconstruction to a worker + loads latent data", () => {
