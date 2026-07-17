@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <title>Latent Shapes — Interactive Demo</title>
+    <link rel="icon" type="image/png" href="./favicon.png">
     <script type="importmap">
         {
             "imports": {
@@ -38,64 +39,95 @@
             --reduce-14: rgba(128, 128, 128, 0.14);
             --reduce-30: rgba(128, 128, 128, 0.30);
             --reduce-90: rgba(128, 128, 128, 0.90);
+            /* in-progress sweep sampled from the reconstructed mesh: green -> cyan -> blue -> violet -> pink */
+            --grad: linear-gradient(120deg, #4ee0a0 0%, #22b6f0 27%, #4f6bff 52%, #a24bff 76%, #ff4fb0 100%);
         }
 
+        html { overflow-x: clip; }
         body {
             margin: 0;
             padding: 0;
-            overflow: hidden;
+            background: var(--light);
             font-family: var(--font);
+            font-size: calc(0.76rem + 0.2vw);
+            line-height: 1.6;
             color: var(--text-dark);
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
 
-        /* one restrained load reveal (mirrors the reference site's @keyframes rise) */
+        /* one restrained, staggered load reveal (mirrors the reference site) */
         @keyframes rise { from { opacity: 0; transform: translateY(9px); } to { opacity: 1; transform: translateY(0); } }
+        header, .stage, .prose { animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+        .stage { animation-delay: 0.14s; } .prose { animation-delay: 0.2s; }
         @media (prefers-reduced-motion: reduce) {
-            #sidebar-left, #sidebar-right { animation: none; }
+            header, .stage, .prose, .btn.stop, #duration .seg { animation: none; }
         }
 
-        /* docked left column: one half of the split screen (the viewport #container is the other) */
-        #sidebar-left {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 300px;
-            height: 100vh;
-            background: var(--light);
-            border-right: 1px solid var(--divider);
-            z-index: 1000;
-            padding: 20px;
-            box-sizing: border-box;
-            overflow-y: auto;
-            animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-        }
+        /* --- voronoi centered-page layout --- */
+        .wrap { max-width: 940px; margin: 0 auto; padding: 2.8em clamp(1.2em, 4vw, 2.4em) 3.4em; box-sizing: border-box; }
 
-        #sidebar-right {
-            position: fixed;
-            right: 20px;
-            top: 20px;
-            width: 200px;
-            text-align: left;
-            z-index: 1000;
-            color: var(--text-dark);
-            animation: rise 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
-            animation-delay: 0.08s;
-        }
+        .stage { display: grid; grid-template-columns: minmax(0, 1fr) 268px; gap: 2em; align-items: start; }
+        @media (max-width: 760px) { .stage { grid-template-columns: 1fr; } }
 
-        #sidebar-right table {
+        /* the 3D viewport: a square in the left cell of the stage */
+        .viewport {
+            position: relative;
             width: 100%;
+            aspect-ratio: 1 / 1;
+            border: 1px solid var(--divider);
+            border-radius: 8px;
+            background: var(--bg-subtle);
+            overflow: hidden;
+        }
+        #container { position: absolute; inset: 0; }
+        #container canvas { display: block; }
+
+        /* the controls column (right cell of the stage) */
+        #sidebar-left { min-width: 0; }
+
+        /* Reconstruct / Load, side by side at the top of the controls */
+        .actions { display: flex; gap: 0.4em; margin-bottom: 22px; }
+        .actions .btn { flex: 1; width: auto; margin-bottom: 0; }
+
+        /* page header: title + description */
+        .panel-intro { margin-bottom: 1.1em; }
+        .panel-intro h1 { margin: 0 0 0.15em 0; font-size: 1.7em; font-weight: 700; letter-spacing: -0.015em; color: var(--text-dark); }
+        .panel-intro .sub { margin: 0 0 1.1em 0; font-size: 1em; line-height: 1.6; color: var(--text-dark); text-align: justify; }
+        .panel-intro .lede { margin: 0; font-size: 1em; line-height: 1.6; color: var(--text-dark); text-align: justify; }
+        .panel-intro strong { font-family: var(--font); font-weight: 700; color: var(--text-dark); }
+
+        /* Limitations & Future Works — full content width */
+        .prose { margin-top: 3.2em; }
+        .prose h2 { font-size: 1.2em; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 0.5em; }
+        .prose p { margin: 0 0 0.9em; text-align: justify; color: var(--text-dark); }
+        .prose p:last-child { margin-bottom: 0; }
+        .prose strong { font-weight: 700; }
+
+        a { color: var(--link); text-decoration: inherit; }
+        a:hover { text-decoration: underline; }
+
+        /* viewport shortcuts, docked in the panel: key (left) + action (muted, right),
+           same PT Sans / 14px as the STATES lines (e.g. "Reconstructed Mesh Vertices") */
+        .shortcut {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 14px;
+            margin-bottom: 8px;
         }
 
-        #sidebar-right td:nth-child(1) {
+        .shortcut:last-child {
+            margin-bottom: 0;
+        }
+
+        .shortcut .key {
+            color: var(--text-dark);
+        }
+
+        .shortcut .act {
+            color: var(--reduce-90);
             text-align: right;
-            padding-right: 10px;
-        }
-
-        #sidebar-right td:nth-child(3) {
-            text-align: left;
-            padding-left: 10px;
         }
 
         /* flat sections: the panel is the only card — sections split by spacing, not nested boxes */
@@ -117,7 +149,7 @@
         }
 
         .control-item {
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
 
         .control-item:last-child {
@@ -132,11 +164,16 @@
             color: var(--text-dark);
         }
 
-        /* slider + its value share one row (value to the right, as in the reference) */
+        /* label · slider · value share one row (as in the reference site's LAYOUT sliders) */
         .slider-container {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
+        }
+
+        .slider-container label {
+            flex: none;
+            margin-bottom: 0;
         }
 
         .slider {
@@ -186,6 +223,9 @@
         }
 
         .slider-value {
+            flex: none;
+            min-width: 3ch;
+            text-align: right;
             font-family: var(--mono);
             font-size: 13px;
             color: var(--dark);
@@ -197,6 +237,13 @@
             display: flex;
             align-items: center;
             gap: 8px;
+        }
+
+        /* checkbox labels sit inline next to the box — the 8px bottom margin (meant for the
+           slider label) would otherwise inflate the checkbox row height */
+        .checkbox-container label {
+            margin-bottom: 0;
+            line-height: 1.5;
         }
 
         /* bordered box with a black check (appearance:none so it reads on the flat surface) */
@@ -242,7 +289,8 @@
             border-radius: 4px;
             font-family: var(--font);
             font-size: 14px;
-            font-weight: 400;
+            font-weight: 700;
+            line-height: 1.6;
             cursor: pointer;
             transition: background 0.12s, border-color 0.12s, opacity 0.12s;
         }
@@ -277,8 +325,8 @@
 
         /* States readout: dark labels, monospace tabular values (the <strong> spans set by JS) */
         #sidebar-left p {
-            margin: 0 0 6px 0;
-            font-size: 13px;
+            margin: 0 0 12px 0;
+            font-size: 14px;
             line-height: 1.5;
             color: var(--text-dark);
         }
@@ -293,14 +341,34 @@
             color: var(--dark);
         }
 
-        /* the 3D viewport pane: fills the screen to the right of the docked panel */
-        #container {
-            position: fixed;
-            left: 300px;
-            top: 0;
-            right: 0;
-            bottom: 0;
+        /* segmented reconstruction meter shown in the #duration line during a run:
+           one cell per refinement level — finished cells fill solid, current fills by % */
+        #duration .recon { display: block; }
+        #duration .prow {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 6px;
         }
+        #duration .plabel { font-size: 13px; color: var(--text-dark); }
+        #duration .pmeta {
+            font-family: var(--mono);
+            font-size: 12px;
+            font-variant-numeric: tabular-nums;
+            color: var(--reduce-90);
+        }
+        #duration .seg { display: grid; gap: 4px; }
+        #duration .seg > span {
+            display: block;
+            height: 6px;
+            border-radius: 2px;
+            background: var(--reduce-30);
+            overflow: hidden;
+        }
+        #duration .seg > span > i { display: block; height: 100%; background: var(--grad); background-repeat: no-repeat; }
+
+        /* (viewport #container is styled above, inside the .stage layout) */
 
         .loading {
             opacity: 0.5;
@@ -312,17 +380,27 @@
             cursor: not-allowed;
         }
 
-        /* mid-run the reconstruct button is a live Stop control — red, and kept clickable */
+        /* mid-run the reconstruct button is a live Stop control — the in-progress gradient, kept clickable */
+        /* "border-box" makes the gradient span the full border box, not just the padding box —
+           otherwise the 1px (transparent) border samples the gradient past its ends, clamping to
+           the edge colors, which hue-rotate then turns into a red/cyan fringe. Both rules need it:
+           the shorthand "background:" on hover would otherwise reset the origin back to padding-box. */
         .btn.stop {
-            background: #dc3545;
-            border-color: #dc3545;
+            background: var(--grad) border-box;
+            border-color: transparent;
             color: #fff;
         }
         .btn.stop:hover:not(:disabled) {
-            background: #dc3545;
-            border-color: #dc3545;
+            background: var(--grad) border-box;
+            border-color: transparent;
             opacity: 0.85;
         }
+
+        /* hue drift: while reconstructing, the gradient slowly slides its colors. Applied to the Stop
+           button and the duration bar; white text and the gray track carry no saturation, so they stay
+           put. filter is safe here — neither element has fixed/absolute descendants to reparent. */
+        @keyframes hue-shift { 0%, 100% { filter: hue-rotate(0deg); } 50% { filter: hue-rotate(50deg); } }
+        .btn.stop, #duration .seg { animation: hue-shift 4s ease-in-out infinite; }
 
         .select_box {
             border: 1px solid var(--reduce-30);
@@ -332,89 +410,82 @@
     </style>
 </head>
 <body>
-    <div id="sidebar-right">
-        <table>
-            <tr>
-                <td><label>shift + drag</label></td>
-                <td><label>=</label></td>
-                <td><label>selection</label></td>
-            </tr>
-            <tr>
-                <td><label>ctrl + drag</label></td>
-                <td><label>=</label></td>
-                <td><label>moving camera</label></td>
-            </tr>
-            <tr>
-                <td><label>drag</label></td>
-                <td><label>=</label></td>
-                <td><label>rotation</label></td>
-            </tr>
-            <tr>
-                <td><label>esc</label></td>
-                <td><label>=</label></td>
-                <td><label>deselection</label></td>
-            </tr>
-            <tr>
-                <td><label>r</label></td>
-                <td><label>=</label></td>
-                <td><label>reset camera</label></td>
-            </tr>
-        </table>
+    <div class="wrap">
+        <header class="panel-intro">
+            <h1>Latent Shapes</h1>
+            <p class="sub">The trained SDF decoder, exported to ONNX and run on WebGPU by onnxruntime-web, reconstructing meshes coarse-to-fine live in browser</p>
+            <p class="lede">A <strong>latent shape</strong> — 98 vertices you can drag in 3D — encodes each chair; the trained <strong>decoder</strong> turns it into a signed-distance field, <strong>marching cubes</strong> polygonizes that field into a mesh, and a <strong>coarse-to-fine</strong> sweep refines only the cells near the surface, so the result appears within a second.</p>
+        </header>
+
+        <div class="stage">
+            <div class="viewport">
+                <div id="container"></div>
+            </div>
+
+            <div id="sidebar-left">
+                <div class="actions">
+                    <button id="reconstruct_button" class="btn secondary" onclick="reconstruct()">Reconstruct</button>
+                    <button id="load_random_shape_button" class="btn" onclick="load_random_shape()">Load</button>
+                </div>
+
+                <div class="control-group">
+                    <h3>Controller</h3>
+                    <div class="control-item">
+                        <div class="slider-container">
+                            <label for="resolution_slider">Resolution</label>
+                            <input type="range" id="resolution_slider" class="slider" min="32" max="256" value="128" step="8">
+                            <div class="slider-value" id="resolution_value">128</div>
+                        </div>
+                    </div>
+                    <div class="control-item">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="show_latent_shape" class="checkbox" checked>
+                            <label for="show_latent_shape">Show Latent Shape</label>
+                        </div>
+                    </div>
+                    <div class="control-item">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="show_reconstructed_mesh" class="checkbox" checked>
+                            <label for="show_reconstructed_mesh">Show Reconstructed Mesh</label>
+                        </div>
+                    </div>
+                    <div class="control-item">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="show_wireframe" class="checkbox" checked>
+                            <label for="show_wireframe">Show Wireframe</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>States</h3>
+                    <div style="font-size: 12px; color: #666; line-height: 1.4;">
+                        <p id="latent_shape_size">Latent Shape: </p>
+                        <p id="latent_shape_index">Latent Shape Index: </p>
+                        <p id="reconstructed_mesh_vertices_size">Reconstructed Mesh Vertices: </p>
+                        <p id="reconstructed_mesh_faces_size">Reconstructed Mesh Faces: </p>
+                        <p id="reconstructed_mesh_edges_size">Reconstructed Mesh Edges: </p>
+                        <p id="duration">Duration: </p>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <h3>Shortcuts</h3>
+                    <div class="shortcut"><span class="key">shift + drag</span><span class="act">selection</span></div>
+                    <div class="shortcut"><span class="key">ctrl + drag</span><span class="act">moving camera</span></div>
+                    <div class="shortcut"><span class="key">drag</span><span class="act">rotation</span></div>
+                    <div class="shortcut"><span class="key">esc</span><span class="act">deselection</span></div>
+                    <div class="shortcut"><span class="key">r</span><span class="act">reset camera</span></div>
+                </div>
+            </div>
+        </div>
+
+        <section class="prose">
+            <h2>Limitations &amp; Future Works</h2>
+            <p>The main limitation is that the latent-shape vertices don't understand shapes at the <strong>part level</strong>. Each of the 98 vertices is a purely geometric handle over a nearby region of space — none maps to a part a person would name (a backrest, an armrest, a leg). So editing one part is indirect: you find which vertices affect it by trial and error, and a single drag can also bend nearby parts you didn't mean to touch.</p>
+            <p>A promising next step is making the latent shape <strong>part-aware</strong> — aligning vertices (or groups of them) with part labels such as <a href="https://partnet.cs.stanford.edu/">PartNet</a>, or learning the grouping directly, so grabbing “the armrest” moves exactly the vertices that encode it. That would turn space-level dragging into part-level editing.</p>
+        </section>
     </div>
-    <div id="sidebar-left">
-        <div class="control-group">
-            <h3>Controller</h3>
-            <div class="control-item">
-                <label for="resolution_slider">Resolution</label>
-                <div class="slider-container">
-                    <input type="range" id="resolution_slider" class="slider" min="32" max="256" value="128" step="8">
-                    <div class="slider-value" id="resolution_value">128</div>
-                </div>
-            </div>
-            <div class="control-item">
-                <div class="checkbox-container">
-                    <input type="checkbox" id="show_latent_shape" class="checkbox" checked>
-                    <label for="show_latent_shape">Show Latent Shape</label>
-                </div>
-            </div>
-            <div class="control-item">
-                <div class="checkbox-container">
-                    <input type="checkbox" id="show_reconstructed_mesh" class="checkbox" checked>
-                    <label for="show_reconstructed_mesh">Show Reconstructed Mesh</label>
-                </div>
-            </div>
-            <div class="control-item">
-                <div class="checkbox-container">
-                    <input type="checkbox" id="show_wireframe" class="checkbox" checked>
-                    <label for="show_wireframe">Show Wireframe</label>
-                </div>
-            </div>
-        </div>
-
-        <div class="control-group">
-            <h3>Runner</h3>
-            <div class="control-item">
-                <button id="load_random_shape_button" class="btn" onclick="load_random_shape()">Load Latent Shape</button>
-            </div>
-            <div class="control-item">
-                <button id="reconstruct_button" class="btn secondary" onclick="reconstruct()">Reconstruct</button>
-            </div>
-        </div>
-
-        <div class="control-group">
-            <h3>States</h3>
-            <div style="font-size: 12px; color: #666; line-height: 1.4;">
-                <p id="latent_shape_size">Latent Shape: </p>
-                <p id="latent_shape_index">Latent Shape Index: </p>
-                <p id="reconstructed_mesh_vertices_size">Reconstructed Mesh Vertices: </p>
-                <p id="reconstructed_mesh_faces_size">Reconstructed Mesh Faces: </p>
-                <p id="reconstructed_mesh_edges_size">Reconstructed Mesh Edges: </p>
-                <p id="duration">Duration: </p>
-            </div>
-        </div>
-    </div>
-
-    <div id="container"></div>
 
     <script type="module">
         import * as THREE from "three";
@@ -666,6 +737,10 @@
         camera.position.z = -18.5;
 
         const orbit_controls = new OrbitControls(camera, renderer.domElement);
+        // clamp dolly zoom so the model can't be zoomed past (too close) or shrunk to a dot (too far).
+        // default framing distance is ~26.7 (5° FOV, scene radius ~1.2) -> [10, 60] ≈ 2.7x in / 0.45x out
+        orbit_controls.minDistance = 10;
+        orbit_controls.maxDistance = 60;
 
         // gizmo
         const transform_controls = new TransformControls(camera, renderer.domElement);
@@ -676,6 +751,18 @@
         const selection_helper = new SelectionHelper( selection_box, renderer, "select_box" );
         selection_helper.isDown = false;
         selection_helper.element.style.display = "none";
+
+        // The drawn box (.select_box) is position:fixed. SelectionHelper appends it under #container,
+        // but the .stage entrance animation leaves a (non-none) transform on that ancestor, which makes
+        // .stage — not the viewport — the containing block for fixed descendants. That offsets the drawn
+        // box from the real selection (on_pointerup maps clientX/Y through renderer.getBoundingClientRect,
+        // which is always viewport-relative). Reparent the box to <body> so both use viewport coordinates
+        // and stay aligned regardless of any ancestor transform.
+        const _helperSelectStart = selection_helper.onSelectStart.bind(selection_helper);
+        selection_helper.onSelectStart = function (event) {
+            _helperSelectStart(event);
+            document.body.appendChild(selection_helper.element);
+        };
 
         // scene
         scene.add(transform_controls);
@@ -717,12 +804,15 @@
 
         const show_reconstructed_mesh = document.getElementById("show_reconstructed_mesh");
         show_reconstructed_mesh.addEventListener("change", function() {
-            _show_reconstructed_mesh(this.checked);
+            // pass is_reconstructing as live_preview: toggling mid-run keeps the surface see-through
+            // instead of flashing the solid mesh until the next preview frame arrives
+            _show_reconstructed_mesh(this.checked, is_reconstructing);
         });
 
         const show_wireframe_checkbox = document.getElementById("show_wireframe");
         show_wireframe_checkbox.addEventListener("change", function() {
-            _show_reconstructed_mesh(show_reconstructed_mesh.checked);
+            // same as above: mid-run, keep the see-through surface when the wireframe is toggled off
+            _show_reconstructed_mesh(show_reconstructed_mesh.checked, is_reconstructing);
         });
 
         window.addEventListener("keydown", on_keydown);
@@ -939,6 +1029,22 @@
             return edges;
         }
 
+        // segmented level meter for the #duration line during a run: one cell per refinement
+        // level — finished levels fill solid, the current level fills by its within-level %
+        function reconstructProgressHTML(level, levelCount, pct) {
+            let cells = "";
+            // one gradient split across all cells: each cell shows its slice of the full sweep
+            const size = levelCount * 100;
+            for (let i = 1; i <= levelCount; i++) {
+                const w = i < level ? 100 : (i === level ? pct : 0);
+                const posX = levelCount > 1 ? ((i - 1) / (levelCount - 1)) * 100 : 0;
+                cells += `<span><i style="width:${w}%;background-size:${size}% 100%;background-position-x:${posX}%"></i></span>`;
+            }
+            return `<span class="recon"><span class="prow"><span class="plabel">Reconstructing</span>`
+                + `<span class="pmeta">${pct}%</span></span>`
+                + `<span class="seg" style="grid-template-columns:repeat(${levelCount},1fr)">${cells}</span></span>`;
+        }
+
         function updateReconstructButton() {
             if (is_reconstructing) return; // don't clobber the live "Stop" state; a late load-finish can fire mid-run
             const reconstruct_button = document.getElementById("reconstruct_button");
@@ -1084,13 +1190,13 @@
                         reconstructed.add(changed_mesh);
                     }
                     scene.add(reconstructed);
-                    _show_reconstructed_mesh(document.getElementById("show_reconstructed_mesh").checked);
+                    _show_reconstructed_mesh(document.getElementById("show_reconstructed_mesh").checked, true);
                     return;
                 }
                 const percent = Math.round((progress.rowsDone / progress.rowsTotal) * 100);
-                duration_element.innerHTML = `Duration: <strong>reconstructing… level ${progress.level}/${progress.levelCount} · ${percent}%</strong>`;
+                duration_element.innerHTML = reconstructProgressHTML(progress.level, progress.levelCount, percent);
             };
-            duration_element.innerHTML = "Duration: <strong>reconstructing…</strong>";
+            duration_element.innerHTML = `<span class="recon"><span class="prow"><span class="plabel">Reconstructing…</span></span></span>`;
 
             try {
 
@@ -1191,7 +1297,12 @@
             }
         }
 
-        function _show_reconstructed_mesh(checked) {
+        // live_preview=true (during a run) keeps the surface translucent even when the wireframe is
+        // off, so the gradient-colored refining faces on the far side still show through it. The final
+        // mesh and the checkbox toggles pass false, so the finished surface still goes solid with the
+        // wireframe off. (The colored slabs are opaque, so they draw in the opaque pass and the 0.4
+        // translucent surface blends over them — the far ones read as dimmed-but-visible "behind".)
+        function _show_reconstructed_mesh(checked, live_preview = false) {
             const show_wireframe = document.getElementById("show_wireframe").checked;
             for (const child of reconstructed.children) {
                 child.visible = checked && (child.name !== RECONSTRUCTED_MESH_WIREFRAME || show_wireframe);
@@ -1202,7 +1313,7 @@
                     if (!child.geometry.getAttribute("normal")) {
                         child.geometry.computeVertexNormals();
                     }
-                    child.material = show_wireframe
+                    child.material = (show_wireframe || live_preview)
                         ? RECONSTRUCTED_MESH_TRANSLUCENT_MATERIAL
                         : RECONSTRUCTED_MESH_SOLID_MATERIAL;
                 }
