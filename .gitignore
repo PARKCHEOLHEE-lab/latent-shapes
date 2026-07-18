@@ -13,4 +13,5 @@ task.md
 # per-machine agent state (arch-gate sidecar, etc.)
 .agents/
 .venv-local/
+.venv/
 node_modules/

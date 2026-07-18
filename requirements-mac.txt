@@ -1,0 +1,28 @@
+# Apple Silicon (macOS arm64) runtime deps for the local interpolator demo.
+#
+# The root requirements.txt pins 2023-era versions (e.g. scikit-image==0.19.2,
+# numpy==1.25.1) that predate Python 3.11 and have no arm64 wheels, so they only
+# build from source and fail. This file pins the versions verified working on
+# macOS arm64 + Python 3.11 with torch's MPS (Metal GPU) backend.
+#
+# It also adds `torch`, which the root requirements.txt leaves out (it came from
+# the NVIDIA CUDA container image, not from pip).
+#
+# Setup:
+#   python3.11 -m venv .venv
+#   .venv/bin/pip install -r requirements-mac.txt
+#   .venv/bin/python latent_shapes/demo/app.py   # http://localhost:7777
+#
+# This is the demo's runtime subset only (not the training deps: ray,
+# tensorboard, matplotlib, etc.). scipy/pillow/networkx etc. come in as
+# transitive deps of scikit-image, fastapi, and uvicorn.
+
+torch==2.13.0
+numpy==2.4.6
+scikit-image==0.26.0
+trimesh==4.12.2
+tqdm==4.69.0
+fastapi==0.139.2
+uvicorn==0.51.0
+pydantic==2.13.4
+point-cloud-utils==0.34.0

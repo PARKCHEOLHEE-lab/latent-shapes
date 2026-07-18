@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import torch
@@ -6,7 +7,8 @@ import uvicorn
 from typing import List
 from pydantic import BaseModel
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 basedir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../runs/08-02-2025__17-36-23/"))
 if basedir not in sys.path:
@@ -15,14 +17,33 @@ if basedir not in sys.path:
 from src.config import Configuration
 from src.model import SDFDecoder, LatentShapes
 
+from reconstruct_stream import reconstruct_adaptive
+
 
 app = FastAPI(title="latent-shapes")
+
+
+# serve the shared UI assets (PT Sans fonts + favicon) that interpolator.html references,
+# so the local demo looks exactly like the static demo. Both read the same files in docs/,
+# keeping one source of truth for the fonts.
+_assets_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../docs"))
+app.mount("/fonts", StaticFiles(directory=os.path.join(_assets_dir, "fonts")), name="fonts")
+app.mount("/js", StaticFiles(directory=os.path.join(os.path.dirname(__file__), "js")), name="js")
+
+
+@app.get("/favicon.png")
+def favicon():
+    return FileResponse(os.path.join(_assets_dir, "favicon.png"))
 
 
 configuration = Configuration()
 configuration.set_seed()
 
-states = torch.load(os.path.join(basedir, configuration.SAVE_NAME))
+states = torch.load(
+    os.path.join(basedir, configuration.SAVE_NAME),
+    map_location=configuration.DEVICE,
+    weights_only=False,  # trusted local checkpoint; it stores non-tensor objects (e.g. trimesh.Trimesh)
+)
 
 latent_shapes = LatentShapes(
     latent_shapes=torch.rand(size=(configuration.SLICER, configuration.NUM_LATENT_SHAPE_VERTICES, 3))
@@ -104,6 +125,42 @@ def reconstruct(request: ReconstructRequest):
 
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Reconstruction failed: {str(e)}")
+
+
+def _make_stream_decoder(cage_xyz):
+    # cage_xyz: the latent cage in decoder (xyz) space (y/z already swapped from the body).
+    # Returns decoder(xyz[N,3]) -> sdf[N], chunked to bound peak memory (cf. model.py:198).
+    cage_flat = torch.tensor(cage_xyz, dtype=torch.float32, device=configuration.DEVICE).reshape(1, -1)
+
+    def decoder(xyz_np):
+        xyz = torch.as_tensor(xyz_np, dtype=torch.float32, device=configuration.DEVICE)
+        out = []
+        with torch.inference_mode():
+            for chunk in xyz.split(65536):
+                cxyz = torch.cat([chunk, cage_flat.expand(chunk.shape[0], -1)], dim=1)
+                out.append(sdf_decoder.forward(cxyz).squeeze(-1))
+        return torch.cat(out).cpu().numpy()
+
+    return decoder
+
+
+@app.post("/api/reconstruct/stream")
+def reconstruct_stream(request: ReconstructRequest):
+    # Coarse-to-fine streaming: emit one Server-Sent Event per refinement level (coarse
+    # first) so the browser reveals the mesh as it sharpens, matching the static demo.
+    # ensure_watertight is intentionally not applied here (the static demo has no watertight
+    # step); use /api/reconstruct for a single watertight mesh.
+    cage_xyz = [[p[0], p[2], p[1]] for p in request.latent_shapes]  # xzy body -> xyz (cf. app.py:94)
+    decoder = _make_stream_decoder(cage_xyz)
+
+    def event_stream():
+        for event in reconstruct_adaptive(
+            cage_xyz, request.resolution, decoder,
+            rescale=request.rescale, map_z_to_y=request.map_z_to_y, adaptive=True,
+        ):
+            yield f"data: {json.dumps(event)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 if __name__ == "__main__":
