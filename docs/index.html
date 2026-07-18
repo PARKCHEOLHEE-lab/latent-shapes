@@ -711,6 +711,10 @@
         box_geometry = new THREE.LineSegments(box_geometry, BOX_LINESEGMENTS_MATERIAL);
         box_geometry.computeLineDistances();
 
+        // clamp limits for dragged latent-shape vertices: the box's real display extents, read
+        // straight from the built box (robust to the box's swapped-size / x-y-z-center mix)
+        const latent_shape_bounds = new THREE.Box3().setFromObject(box_geometry);
+
         // create scene
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0xffffff);
@@ -949,6 +953,11 @@
                 selected_shape[i].position.x = original_pos.x + dx;
                 selected_shape[i].position.y = original_pos.y + dy;
                 selected_shape[i].position.z = original_pos.z + dz;
+            }
+
+            // keep every dragged vertex inside the bounding box (each clamped on its own)
+            for (const vertex of selected_shape) {
+                vertex.position.clamp(latent_shape_bounds.min, latent_shape_bounds.max);
             }
 
             const latent_shape_vertices = latent_shape.map(
