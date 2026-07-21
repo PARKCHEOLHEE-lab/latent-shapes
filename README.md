@@ -1,7 +1,7 @@
 # Latent Shapes [<img src="latent_shapes/assets/external-link.svg" width="25" height="25" alt="open the demo in new tab" />](https://parkcheolhee-lab.github.io/latent-shapes/)
 
 <div align="justify">
-  This project takes inspiration from this <a href="https://parkcheolhee-lab.github.io/latent-points/">perspective</a> and explores two main conceptions:
+  The Latent Shapes project takes inspiration from this <a href="https://parkcheolhee-lab.github.io/latent-points/">perspective</a> and explores two main conceptions:
   <strong>1) Latent vectors with geometric shape ─</strong> exploring what happens if we give the latent vectors a geometric structure, and how that might help us better understand or control the results;
   <strong>2) Interactive manipulation using the latent vector ─</strong> making it possible for people to easily change and play with the latent vectors, so they can see and understand the effects right away and create new shapes or designs interactively.
   <br><br>
@@ -12,11 +12,6 @@
 
 <div align="center" text-align="justify">
   <img src="latent_shapes/assets/latent-shapes-demo.gif" alt="Interactive latent-shape editing and reconstruction demo" width="100%">　　
-  <p align="center">
-    <i>
-    Latent Vector Manipulation with Mouse Dragging
-    </i>
-  </p>
 </div>
 
 <br><br>
