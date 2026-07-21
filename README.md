@@ -1,9 +1,6 @@
 # Latent Shapes [<img src="latent_shapes/assets/external-link.svg" width="25" height="25" alt="open the demo in new tab" />](https://parkcheolhee-lab.github.io/latent-shapes/)
 
 <div align="justify">
-  In the best of my knowledge, latent vectors are initialized from a normal distribution and then updated during training to minimize the loss.
-  Although linear interpolation can be used in the manipulations between latent vectors, and similar vectors can be placed in spatially close locations, the latent vectors themselves do not have a specific shape.
-  <br><br>
   This project takes inspiration from this <a href="https://parkcheolhee-lab.github.io/latent-points/">perspective</a> and explores two main conceptions:
   <strong>1) Latent vectors with geometric shape ─</strong> exploring what happens if we give the latent vectors a geometric structure, and how that might help us better understand or control the results;
   <strong>2) Interactive manipulation using the latent vector ─</strong> making it possible for people to easily change and play with the latent vectors, so they can see and understand the effects right away and create new shapes or designs interactively.
@@ -14,10 +11,10 @@
 <br>
 
 <div align="center" text-align="justify">
-  <img src="latent_shapes/assets/latent-shapes-demo.gif" width="100%">　　
+  <img src="latent_shapes/assets/latent-shapes-demo.gif" alt="Interactive latent-shape editing and reconstruction demo" width="100%">　　
   <p align="center">
     <i>
-    Latent Vector Manipulation <br> with Mouse Dargging
+    Latent Vector Manipulation with Mouse Dragging
     </i>
   </p>
 </div>
@@ -31,7 +28,7 @@
 <div align="justify">
   The demo runs entirely in your browser — nothing to install and no server: <strong><a href="https://parkcheolhee-lab.github.io/latent-shapes/">try it here</a></strong>.
   The trained decoder is exported to ONNX and executed client-side by <code>onnxruntime-web</code>, on WebGPU when the browser supports it and on WASM otherwise.
-  Reconstruction samples the SDF coarse-to-fine — an <a href="https://en.wikipedia.org/wiki/Octree">octree</a>-style refinement that subdivides only the cells near the surface — so the mesh appears within a second and sharpens progressively while the rest computes.
+  Reconstruction samples the SDF coarse-to-fine — an <a href="https://en.wikipedia.org/wiki/Octree">octree</a>-style refinement that subdivides only the cells near the surface — and sharpens the mesh progressively while the rest computes.
 </div>
 
 <br>
@@ -39,37 +36,8 @@
 ### Running locally
 
 <div align="justify">
-  The local demo can run on both CPU and GPU. However, CPU inference is significantly slower. For reference, using RTX 3060 Laptop GPU at 80 for resolution, mesh reconstruction took approximately 1500ms. To run the demo, execute the <code>app.py</code> after changing the directory to the <code>latent_shapes/demo</code>. 
+  The local demo can run on both CPU and GPU. However, CPU inference is significantly slower. For reference, using RTX 3060 Laptop GPU at 80 for resolution, mesh reconstruction took approximately 1500ms. To run the demo, execute <code>cd latent_shapes/demo && python app.py</code>.
   The environment setup is described in <a href="/.devcontainer/README.md">.devcontainer</a>.
-</div>
-
-<br>
-
-```
-  cd latent_shapes/demo && python app.py
-
-  (...)
-
-  INFO:     Will watch for changes in these directories: ['/root/latent-shape-interpolator/latent_shapes/demo']
-  INFO:     Uvicorn running on http://0.0.0.0:7777 (Press CTRL+C to quit)
-  INFO:     Started reloader process [226582] using StatReload
-  INFO:     Started server process [226678]
-  INFO:     Waiting for application startup.
-  INFO:     Application startup complete.
-```
-
-<br>
-
-
-<div align="center" display="flex">
-  <img src="latent_shapes/assets/latent-shapes-demo-0.png" width="47%">　　
-  <img src="latent_shapes/assets/latent-shapes-demo-1.png" width="47%">
-  <br><br>
-  <p align="center">
-    <i>
-    interpolator.html
-    </i>
-  </p>
 </div>
 
 <br><br>

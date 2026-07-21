@@ -91,7 +91,7 @@
         .actions .btn { flex: 1; width: auto; margin-bottom: 0; }
 
         /* page header: title + description */
-        .panel-intro { margin-bottom: 1.1em; }
+        .panel-intro { margin-bottom: 1.6em; }
         .panel-intro h1 { margin: 0 0 0.15em 0; font-size: 1.7em; font-weight: 700; letter-spacing: -0.015em; color: var(--text-dark); }
         .panel-intro .sub { margin: 0 0 1.1em 0; font-size: 1em; line-height: 1.6; color: var(--text-dark); text-align: justify; }
         .panel-intro .lede { margin: 0; font-size: 1em; line-height: 1.6; color: var(--text-dark); text-align: justify; }
@@ -414,7 +414,7 @@
         <header class="panel-intro">
             <h1>Latent Shapes</h1>
             <p class="sub">The trained SDF decoder, exported to ONNX and run on WebGPU by onnxruntime-web, reconstructing meshes coarse-to-fine live in browser</p>
-            <p class="lede">A <strong>latent shape</strong> — 98 vertices you can drag in 3D — encodes each chair; the trained <strong>decoder</strong> turns it into a signed-distance field, <strong>marching cubes</strong> polygonizes that field into a mesh, and a <strong>coarse-to-fine</strong> sweep refines only the cells near the surface, so the result appears within a second.</p>
+            <p class="lede">A <strong>latent shape</strong> — 98 vertices you can drag in 3D — encodes each chair; the trained <strong>decoder</strong> turns it into a signed-distance field, <strong>marching cubes</strong> polygonizes that field into a mesh, and a <strong>coarse-to-fine</strong> sweep refines only the cells near the surface.</p>
         </header>
 
         <div class="stage">
