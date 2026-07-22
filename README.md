@@ -18,12 +18,13 @@
 
 # Demo
 
+Reconstruction samples the <a href="https://www.ecva.net/papers/eccv_2024/papers_ECCV/papers/06748.pdf">SDF coarse-to-fine</a> — an <a href="https://en.wikipedia.org/wiki/Octree">octree</a>-style refinement that subdivides only the cells near the surface — and sharpens the mesh progressively while the rest computes.
+
 ### In the browser
 
 <div align="justify">
   The demo runs entirely in your browser — nothing to install and no server: <strong><a href="https://parkcheolhee-lab.github.io/latent-shapes/">try it here</a></strong>.
   The trained decoder is exported to ONNX and executed client-side by <code>onnxruntime-web</code>, on WebGPU when the browser supports it and on WASM otherwise.
-  Reconstruction samples the SDF coarse-to-fine — an <a href="https://en.wikipedia.org/wiki/Octree">octree</a>-style refinement that subdivides only the cells near the surface — and sharpens the mesh progressively while the rest computes.
 </div>
 
 <br>
