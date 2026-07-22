@@ -98,14 +98,19 @@ class ModelConfiguration:
     ACTIVATION_KWARGS = {"inplace": True}
 
     CUDA = "cuda"
+    MPS = "mps"
     CPU = "cpu"
 
-    DEVICE = CUDA
-    if not torch.cuda.is_available():
+    if torch.cuda.is_available():
+        DEVICE = CUDA
+    elif torch.backends.mps.is_available():
+        DEVICE = MPS
+    else:
         DEVICE = CPU
 
-    print("CUDA status")
+    print("Device status")
     print(f"  torch.cuda.is_available(): {torch.cuda.is_available()}")
+    print(f"  torch.backends.mps.is_available(): {torch.backends.mps.is_available()}")
     print(f"  DEVICE: {DEVICE} \n")
 
 
@@ -136,7 +141,8 @@ class Configuration(DataConfiguration, ModelConfiguration):
 
         print("\nSeeds status:")
         print(f"  Seeds set for torch        : {torch.initial_seed()}")
-        print(f"  Seeds set for torch on GPU : {torch.cuda.initial_seed()}")
+        if torch.cuda.is_available():
+            print(f"  Seeds set for torch on GPU : {torch.cuda.initial_seed()}")
         print(f"  Seeds set for numpy        : {seed}")
         print(f"  Seeds set for random       : {seed} \n")
 

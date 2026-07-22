@@ -1,9 +1,17 @@
 __pycache__/
 debugvisualizer/
 data/
+# the rule above targets the ShapeNet dataset; the demo's precomputed latents must ship
+!docs/data/
 *.npz
 runs/
 *.out
 *.obj
 
 task.md
+
+# per-machine agent state (arch-gate sidecar, etc.)
+.agents/
+.venv-local/
+.venv/
+node_modules/
