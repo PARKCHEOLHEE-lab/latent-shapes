@@ -5,7 +5,7 @@
   <strong>1) Latent vectors with geometric shape ─</strong> exploring what happens if we give the latent vectors a geometric structure, and how that might help us better understand or control the results;
   <strong>2) Interactive manipulation using the latent vector ─</strong> making it possible for people to easily change and play with the latent vectors, so they can see and understand the effects right away and create new shapes or designs interactively.
   <br><br>
-  <mark>The detailed process of this project is archived <a href="https://parkcheolhee-lab.github.io/latent-shapes-experiment/">here</a>.</mark>
+  The detailed process of this project is archived <a href="https://parkcheolhee-lab.github.io/latent-shapes-experiment/">here</a>.
 </div>
 
 <br>
