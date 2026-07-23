@@ -102,6 +102,50 @@ test("both demos start one-shot box selection on the second press, before releas
   }
 });
 
+test("both demos leave box-selection activation to pointer gestures, not Shift", () => {
+  for (const [name, pageHtml] of pages) {
+    const onKeyDown = pageHtml.slice(
+      pageHtml.indexOf("function on_keydown(event)"),
+      pageHtml.indexOf("// mouse position ->"),
+    );
+    const runKeyDown = new Function(
+      "event",
+      `
+        let is_one_shot_selection = false;
+        const calls = { selectionModes: [], replacements: [], resets: 0 };
+        function set_selection_mode(...args) {
+          calls.selectionModes.push(args);
+        }
+        function replace_selected_shape(selections) {
+          calls.replacements.push(selections);
+        }
+        function reset_camera() {
+          calls.resets += 1;
+        }
+        ${onKeyDown}
+        on_keydown(event);
+        return calls;
+      `,
+    );
+
+    assert.deepEqual(
+      runKeyDown({ key: "Shift" }).selectionModes,
+      [],
+      `${name} must not enter selection mode from Shift`,
+    );
+    assert.deepEqual(
+      runKeyDown({ key: "Escape" }).replacements,
+      [[]],
+      `${name} must keep Escape deselection`,
+    );
+    assert.equal(
+      runKeyDown({ key: "r" }).resets,
+      1,
+      `${name} must keep the camera-reset shortcut`,
+    );
+  }
+});
+
 test("both demos consume one box drag and cancel armed mode safely", () => {
   for (const [name, pageHtml] of pages) {
     assert.match(
@@ -126,7 +170,7 @@ test("both demos consume one box drag and cancel armed mode safely", () => {
     );
     assert.match(
       pageHtml,
-      /else if \(event\.key === "Escape"\)\s*\{\s*if \(is_one_shot_selection\)\s*\{\s*set_selection_mode\(false\);/,
+      /function on_keydown\(event\)\s*\{\s*if \(event\.key === "Escape"\)\s*\{\s*if \(is_one_shot_selection\)\s*\{\s*set_selection_mode\(false\);/,
       `${name} must let Escape cancel one-shot mode`,
     );
   }
@@ -158,6 +202,147 @@ test("both demos route box-drag and vertex-tap through one selection state", () 
       pageHtml,
       /candidate\.started_on_gizmo \|\| hit_vertex !== null[\s\S]*if \(hit_vertex !== null\)\s*\{\s*toggle_selected_vertex\(hit_vertex\);/,
       `${name} must let a no-move tap toggle the vertex beneath its gizmo`,
+    );
+  }
+});
+
+test("both demos clear selection only after a stationary empty-canvas release", () => {
+  for (const [name, pageHtml] of pages) {
+    const completeTap = pageHtml.slice(
+      pageHtml.indexOf("function complete_tap(event)"),
+      pageHtml.indexOf("function on_pointerdown(event)"),
+    );
+    const runCompleteTap = new Function(
+      "candidate",
+      "event",
+      "pointerCount",
+      "reconstructing",
+      "hitVertex",
+      `
+        let tap_candidate = candidate;
+        let last_empty_tap = null;
+        const active_pointer_ids = { size: pointerCount };
+        const is_reconstructing = reconstructing;
+        const TAP_MOVE_THRESHOLD = 8;
+        const calls = { replacements: [], toggled: [] };
+        function pick_latent_vertex() { return hitVertex; }
+        function replace_selected_shape(selections) {
+          calls.replacements.push(selections);
+        }
+        function toggle_selected_vertex(vertex) {
+          calls.toggled.push(vertex);
+        }
+        ${completeTap}
+        complete_tap(event);
+        return { calls, last_empty_tap };
+      `,
+    );
+    const candidate = {
+      pointer_id: 1,
+      pointer_type: "touch",
+      x: 100,
+      y: 100,
+      moved: false,
+      started_on_gizmo: false,
+    };
+    const event = {
+      pointerId: 1,
+      pointerType: "touch",
+      clientX: 100,
+      clientY: 100,
+      timeStamp: 250,
+    };
+
+    const emptyTap = runCompleteTap(candidate, event, 1, false, null);
+    assert.deepEqual(
+      emptyTap.calls.replacements,
+      [[]],
+      `${name} must clear through the shared selection path`,
+    );
+    assert.deepEqual(
+      emptyTap.last_empty_tap,
+      { time: 250, x: 100, y: 100, pointer_type: "touch" },
+      `${name} must retain the empty tap for double-tap selection`,
+    );
+
+    const ignoredCases = [
+      ["observed camera drag", { ...candidate, moved: true }, event, 1, false, null],
+      ["release 9px from press", candidate, { ...event, clientX: 109 }, 1, false, null],
+      ["two-pointer gesture", candidate, event, 2, false, null],
+      ["reconstruction", candidate, event, 1, true, null],
+      ["transform gizmo", { ...candidate, started_on_gizmo: true }, event, 1, false, null],
+    ];
+    for (const [gesture, gestureCandidate, gestureEvent, pointerCount, reconstructing, hitVertex] of ignoredCases) {
+      const result = runCompleteTap(
+        gestureCandidate,
+        gestureEvent,
+        pointerCount,
+        reconstructing,
+        hitVertex,
+      );
+      assert.deepEqual(
+        result.calls.replacements,
+        [],
+        `${name} must preserve selection during ${gesture}`,
+      );
+      assert.equal(
+        result.last_empty_tap,
+        null,
+        `${name} must not seed double-tap selection during ${gesture}`,
+      );
+    }
+
+    const vertex = { name: "latent-shape" };
+    const vertexTap = runCompleteTap(candidate, event, 1, false, vertex);
+    assert.deepEqual(
+      vertexTap.calls.replacements,
+      [],
+      `${name} must not clear before toggling a vertex`,
+    );
+    assert.deepEqual(
+      vertexTap.calls.toggled,
+      [vertex],
+      `${name} must preserve vertex toggling`,
+    );
+    assert.ok(
+      completeTap.indexOf("replace_selected_shape([]);")
+        < completeTap.indexOf("last_empty_tap = {"),
+      `${name} must clear before storing the next empty tap`,
+    );
+  }
+});
+
+test("both demos show concise desktop and touch shortcut maps", () => {
+  for (const [name, pageHtml] of pages) {
+    const shortcuts = [
+      ...pageHtml.matchAll(
+        /<div class="shortcut (desktop|touch)-shortcut"><span class="key">([^<]+)<\/span><span class="act">([^<]+)<\/span><\/div>/g,
+      ),
+    ].map((match) => [match[1], match[2], match[3]]);
+    assert.deepEqual(
+      shortcuts.filter(([device]) => device === "desktop"),
+      [
+        ["desktop", "double-click + drag", "select"],
+        ["desktop", "click vertex", "add / remove"],
+        ["desktop", "click empty", "deselect"],
+        ["desktop", "ctrl + drag", "pan"],
+        ["desktop", "drag", "rotate"],
+        ["desktop", "esc", "deselect"],
+        ["desktop", "r", "reset camera"],
+      ],
+      `${name} must show the concise desktop map without Shift selection`,
+    );
+    assert.deepEqual(
+      shortcuts.filter(([device]) => device === "touch"),
+      [
+        ["touch", "double tap, then drag", "select"],
+        ["touch", "tap vertex", "add / remove"],
+        ["touch", "tap empty", "deselect"],
+        ["touch", "one-finger drag", "rotate"],
+        ["touch", "two-finger drag", "pan"],
+        ["touch", "pinch", "zoom"],
+      ],
+      `${name} must show the concise touch map`,
     );
   }
 });

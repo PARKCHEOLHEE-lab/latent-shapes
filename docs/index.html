@@ -481,16 +481,18 @@
 
                 <div class="control-group">
                     <h3>Shortcuts</h3>
-                    <div class="shortcut desktop-shortcut"><span class="key">shift + drag</span><span class="act">selection</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">double-click + drag</span><span class="act">select</span></div>
                     <div class="shortcut desktop-shortcut"><span class="key">click vertex</span><span class="act">add / remove</span></div>
-                    <div class="shortcut desktop-shortcut"><span class="key">ctrl + drag</span><span class="act">moving camera</span></div>
-                    <div class="shortcut desktop-shortcut"><span class="key">drag</span><span class="act">rotation</span></div>
-                    <div class="shortcut desktop-shortcut"><span class="key">esc</span><span class="act">deselection</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">click empty</span><span class="act">deselect</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">ctrl + drag</span><span class="act">pan</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">drag</span><span class="act">rotate</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">esc</span><span class="act">deselect</span></div>
                     <div class="shortcut desktop-shortcut"><span class="key">r</span><span class="act">reset camera</span></div>
-                    <div class="shortcut touch-shortcut"><span class="key">double tap, then drag</span><span class="act">selection</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">double tap, then drag</span><span class="act">select</span></div>
                     <div class="shortcut touch-shortcut"><span class="key">tap vertex</span><span class="act">add / remove</span></div>
-                    <div class="shortcut touch-shortcut"><span class="key">one-finger drag</span><span class="act">rotation</span></div>
-                    <div class="shortcut touch-shortcut"><span class="key">two-finger drag</span><span class="act">moving camera</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">tap empty</span><span class="act">deselect</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">one-finger drag</span><span class="act">rotate</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">two-finger drag</span><span class="act">pan</span></div>
                     <div class="shortcut touch-shortcut"><span class="key">pinch</span><span class="act">zoom</span></div>
                 </div>
             </div>
@@ -713,7 +715,6 @@
         let selected_shape = [];
         let selected_indices = [];
 
-        let is_mouse_down = false;
         let is_selection_mode = false;
         let is_one_shot_selection = false;
         let selection_pointer_id = null;
@@ -874,7 +875,6 @@
         });
 
         window.addEventListener("keydown", on_keydown);
-        window.addEventListener("keyup", on_keyup);
         window.addEventListener("pointerdown", on_pointerdown);
         window.addEventListener("pointermove", on_pointermove);
         window.addEventListener("pointerup", on_pointerup);
@@ -905,26 +905,13 @@
         }
 
         function on_keydown(event) {
-            if (event.key === "Shift" && !is_mouse_down) {
-                set_selection_mode(true);
-            } else if (event.key === "Escape") {
+            if (event.key === "Escape") {
                 if (is_one_shot_selection) {
                     set_selection_mode(false);
                 }
-                selected_shape = [];
-                selected_indices = [];
-                transform_controls.detach();
-                for (const vertex of latent_shape) {
-                    vertex.material.color.set(LATENT_SHAPE_SPHERE_COLOR)
-                }
+                replace_selected_shape([]);
             } else if (event.key && event.key.toLowerCase() === "r") {
                 reset_camera();
-            }
-        }
-
-        function on_keyup(event) {
-            if (event.key === "Shift") {
-                set_selection_mode(false);
             }
         }
 
@@ -1010,6 +997,10 @@
                 candidate === null
                 || candidate.pointer_id !== event.pointerId
                 || candidate.moved
+                || Math.hypot(
+                    event.clientX - candidate.x,
+                    event.clientY - candidate.y,
+                ) > TAP_MOVE_THRESHOLD
                 || active_pointer_ids.size > 1
                 || is_reconstructing
             ) {
@@ -1026,6 +1017,7 @@
                 return;
             }
 
+            replace_selected_shape([]);
             last_empty_tap = {
                 time: event.timeStamp,
                 x: event.clientX,
@@ -1035,8 +1027,6 @@
         }
 
         function on_pointerdown(event) {
-            is_mouse_down = true;
-
             if (event.target === renderer.domElement) {
                 active_pointer_ids.add(event.pointerId);
 
@@ -1111,12 +1101,10 @@
             if (!was_selection_mode) {
                 complete_tap(event);
                 active_pointer_ids.delete(event.pointerId);
-                is_mouse_down = active_pointer_ids.size > 0;
                 return;
             }
 
             active_pointer_ids.delete(event.pointerId);
-            is_mouse_down = active_pointer_ids.size > 0;
 
             if (
                 is_reconstructing
@@ -1141,7 +1129,6 @@
 
         function on_pointercancel(event) {
             active_pointer_ids.delete(event.pointerId);
-            is_mouse_down = active_pointer_ids.size > 0;
             if (is_one_shot_selection) {
                 set_selection_mode(false);
             }
