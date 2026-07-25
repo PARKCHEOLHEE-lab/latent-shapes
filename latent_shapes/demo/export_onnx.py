@@ -2,7 +2,9 @@ import inspect
 import os
 import sys
 
+import onnx
 import torch
+from onnxconverter_common.float16 import convert_float_to_float16
 
 
 def export_decoder_onnx(runs_dir, out_path, opset=17):
@@ -38,6 +40,30 @@ def export_decoder_onnx(runs_dir, out_path, opset=17):
         export_kwargs["dynamo"] = False
 
     torch.onnx.export(decoder, dummy, out_path, **export_kwargs)
+
+    model = onnx.load(out_path)
+    decoder_nodes = [
+        node for node in model.graph.node
+        if node.name.startswith("/blocks.1/")
+    ]
+    fp32_tail = [node.name for node in decoder_nodes[-10:]]
+    model = convert_float_to_float16(
+        model,
+        keep_io_types=True,
+        node_block_list=fp32_tail,
+    )
+    # onnxconverter-common 1.16 changes the public output to FP16 when the
+    # final node is blocked. Keep the worker contract and final SDF in FP32.
+    if model.graph.output[0].type.tensor_type.elem_type == onnx.TensorProto.FLOAT16:
+        model.graph.output[0].type.tensor_type.elem_type = onnx.TensorProto.FLOAT
+        output_name = model.graph.output[0].name
+        for node in model.graph.node:
+            if node.op_type == "Cast" and output_name in node.output:
+                for attribute in node.attribute:
+                    if attribute.name == "to":
+                        attribute.i = onnx.TensorProto.FLOAT
+    onnx.checker.check_model(model)
+    onnx.save(model, out_path)
     return out_path
 
 

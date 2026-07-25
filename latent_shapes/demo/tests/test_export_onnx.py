@@ -1,7 +1,9 @@
+import json
 import os
 import sys
 
 import numpy as np
+import onnx
 import torch
 import onnxruntime as ort
 
@@ -34,7 +36,7 @@ def _load_trained_decoder():
     return cfg, decoder
 
 
-def test_onnx_matches_pytorch(tmp_path):
+def test_onnx_uses_balanced_mixed_precision_and_matches_pytorch(tmp_path):
     from export_onnx import export_decoder_onnx
 
     cfg, decoder = _load_trained_decoder()
@@ -43,18 +45,38 @@ def test_onnx_matches_pytorch(tmp_path):
     onnx_path = str(tmp_path / "decoder.onnx")
     export_decoder_onnx(runs_dir=RUNS_DIR, out_path=onnx_path)
 
+    model = onnx.load(onnx_path)
+    assert model.graph.input[0].type.tensor_type.elem_type == onnx.TensorProto.FLOAT
+    assert model.graph.output[0].type.tensor_type.elem_type == onnx.TensorProto.FLOAT
+    initializer_types = {initializer.data_type for initializer in model.graph.initializer}
+    assert onnx.TensorProto.FLOAT16 in initializer_types
+    assert onnx.TensorProto.FLOAT in initializer_types
+    assert os.path.getsize(onnx_path) < 15_000_000
+
     session = ort.InferenceSession(onnx_path, providers=["CPUExecutionProvider"])
     input_name = session.get_inputs()[0].name
 
-    torch.manual_seed(0)
-    for n in (1, 64):  # two batch sizes -> also proves the dynamic batch axis
-        x = torch.rand(n, input_dim, dtype=torch.float32)
-        with torch.inference_mode():
-            reference = decoder.forward(x).cpu().numpy()
-        got = session.run(None, {input_name: x.numpy()})[0]
+    with open(os.path.join(REPO, "docs", "data", "latent_shapes.json")) as handle:
+        cages = np.asarray(json.load(handle)["latent_shapes"], dtype=np.float32)
+    rng = np.random.default_rng(777)
+    bounds_min = np.asarray([-0.614935, -0.767495, -0.666214], dtype=np.float32)
+    bounds_max = np.asarray([0.644344, 0.792882, 0.581235], dtype=np.float32)
+    rows = []
+    for cage_index in (0, 12, 24, 36, 46):
+        xyz = rng.uniform(bounds_min, bounds_max, size=(512, 3)).astype(np.float32)
+        cage = np.broadcast_to(cages[cage_index].reshape(1, -1), (len(xyz), input_dim - 3))
+        rows.append(np.concatenate([xyz, cage], axis=1))
+    x = np.concatenate(rows, axis=0).astype(np.float32)
 
-        assert got.shape == (n, 1), f"N={n}: got shape {got.shape}"
-        max_abs_diff = float(np.abs(got - reference).max())
-        assert np.allclose(got, reference, atol=1e-4), (
-            f"N={n}: onnx vs pytorch max|diff|={max_abs_diff:.2e} exceeds atol=1e-4"
-        )
+    with torch.inference_mode():
+        reference = decoder.forward(torch.from_numpy(x)).cpu().numpy()
+    got = session.run(None, {input_name: x})[0]
+
+    assert got.shape == reference.shape == (len(x), 1)
+    error = np.abs(got - reference)
+    near_surface = np.abs(reference) <= 0.02
+    sign_mismatch = np.signbit(got) != np.signbit(reference)
+    assert int(near_surface.sum()) >= 20
+    assert float(error.mean()) < 4e-4
+    assert float(error.max()) < 2e-3
+    assert float(sign_mismatch[near_surface].mean()) < 0.05

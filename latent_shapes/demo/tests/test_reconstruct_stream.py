@@ -242,3 +242,33 @@ def test_eval_level_field_on_chunk_fires_per_chunk_with_partial_field():
     non_chunked = eval_level_field(R, dec, bounds)
     assert np.allclose(field, non_chunked)            # chunking must not change the result
     assert np.allclose(last["field"], non_chunked)    # the callback receives the working field
+
+
+def test_torch_decoder_batches_are_smaller_than_preview_chunks(monkeypatch):
+    import app
+
+    inference_batches = []
+
+    def fake_forward(cxyz):
+        inference_batches.append(len(cxyz))
+        return cxyz[:, :1]
+
+    monkeypatch.setattr(app.sdf_decoder, "forward", fake_forward)
+    decoder = app._make_stream_decoder([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0]])
+    preview_updates = []
+    R = 41  # 68,921 points: one 65,536-row preview chunk plus a tail
+    field = eval_level_field(
+        R,
+        decoder,
+        ((-1.0, -1.0, -1.0), (1.0, 1.0, 1.0)),
+        on_chunk=lambda done, total, _field: preview_updates.append((done, total)),
+    )
+
+    assert inference_batches == [32768, 32768, 3385]
+    assert preview_updates == [(65536, R ** 3), (R ** 3, R ** 3)]
+    assert field.shape == (R ** 3,)
+    expected = np.broadcast_to(
+        np.linspace(-1.0, 1.0, R)[:, None, None],
+        (R, R, R),
+    )
+    assert np.allclose(field.reshape(R, R, R), expected)

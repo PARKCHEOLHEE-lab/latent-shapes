@@ -2,6 +2,7 @@
 <html>
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Latent Shapes — Interactive Demo</title>
     <link rel="icon" type="image/png" href="./favicon.png">
     <script type="importmap">
@@ -43,6 +44,7 @@
             --grad: linear-gradient(120deg, #4ee0a0 0%, #22b6f0 27%, #4f6bff 52%, #a24bff 76%, #ff4fb0 100%);
         }
 
+        * { box-sizing: border-box; }
         html { overflow-x: clip; }
         body {
             margin: 0;
@@ -79,6 +81,7 @@
             border-radius: 8px;
             background: var(--bg-subtle);
             overflow: hidden;
+            touch-action: none;
         }
         #container { position: absolute; inset: 0; }
         #container canvas { display: block; }
@@ -128,6 +131,13 @@
         .shortcut .act {
             color: var(--reduce-90);
             text-align: right;
+        }
+
+        .touch-shortcut { display: none; }
+
+        @media (hover: none) and (pointer: coarse) {
+            .desktop-shortcut { display: none; }
+            .touch-shortcut { display: flex; }
         }
 
         /* flat sections: the panel is the only card — sections split by spacing, not nested boxes */
@@ -433,8 +443,8 @@
                     <div class="control-item">
                         <div class="slider-container">
                             <label for="resolution_slider">Resolution</label>
-                            <input type="range" id="resolution_slider" class="slider" min="32" max="256" value="128" step="8">
-                            <div class="slider-value" id="resolution_value">128</div>
+                            <input type="range" id="resolution_slider" class="slider" min="32" max="256" value="72" step="8">
+                            <div class="slider-value" id="resolution_value">72</div>
                         </div>
                     </div>
                     <div class="control-item">
@@ -471,11 +481,19 @@
 
                 <div class="control-group">
                     <h3>Shortcuts</h3>
-                    <div class="shortcut"><span class="key">shift + drag</span><span class="act">selection</span></div>
-                    <div class="shortcut"><span class="key">ctrl + drag</span><span class="act">moving camera</span></div>
-                    <div class="shortcut"><span class="key">drag</span><span class="act">rotation</span></div>
-                    <div class="shortcut"><span class="key">esc</span><span class="act">deselection</span></div>
-                    <div class="shortcut"><span class="key">r</span><span class="act">reset camera</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">double-click + drag</span><span class="act">select</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">click vertex</span><span class="act">add / remove</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">click empty</span><span class="act">deselect</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">ctrl + drag</span><span class="act">pan</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">drag</span><span class="act">rotate</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">esc</span><span class="act">deselect</span></div>
+                    <div class="shortcut desktop-shortcut"><span class="key">r</span><span class="act">reset camera</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">double tap, then drag</span><span class="act">select</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">tap vertex</span><span class="act">add / remove</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">tap empty</span><span class="act">deselect</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">one-finger drag</span><span class="act">rotate</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">two-finger drag</span><span class="act">pan</span></div>
+                    <div class="shortcut touch-shortcut"><span class="key">pinch</span><span class="act">zoom</span></div>
                 </div>
             </div>
         </div>
@@ -634,8 +652,16 @@
         let selected_shape = [];
         let selected_indices = [];
 
-        let is_mouse_down = false;
         let is_selection_mode = false;
+        let is_one_shot_selection = false;
+        let selection_pointer_id = null;
+        let tap_candidate = null;
+        let last_empty_tap = null;
+        const active_pointer_ids = new Set();
+
+        const TAP_MOVE_THRESHOLD = 8;
+        const DOUBLE_TAP_DELAY = 500;
+        const DOUBLE_TAP_DISTANCE = 24;
 
         // bounds from config.py
         const min_x_bound = -0.614935;
@@ -695,6 +721,9 @@
         // default framing distance is ~26.7 (5° FOV, scene radius ~1.2) -> [10, 60] ≈ 2.7x in / 0.45x out
         orbit_controls.minDistance = 10;
         orbit_controls.maxDistance = 60;
+        orbit_controls.touches.ONE = THREE.TOUCH.ROTATE;
+        orbit_controls.touches.TWO = THREE.TOUCH.DOLLY_PAN;
+        const raycaster = new THREE.Raycaster();
 
         // gizmo
         const transform_controls = new TransformControls(camera, renderer.domElement);
@@ -713,9 +742,19 @@
         // which is always viewport-relative). Reparent the box to <body> so both use viewport coordinates
         // and stay aligned regardless of any ancestor transform.
         const _helperSelectStart = selection_helper.onSelectStart.bind(selection_helper);
+        const _helperSelectOver = selection_helper.onSelectOver.bind(selection_helper);
         selection_helper.onSelectStart = function (event) {
+            if (!is_selection_mode || !event.isPrimary || event.button !== 0) {
+                selection_helper.isDown = false;
+                return;
+            }
             _helperSelectStart(event);
             document.body.appendChild(selection_helper.element);
+        };
+        selection_helper.onSelectOver = function () {
+            if (selection_helper.element.parentElement !== null) {
+                _helperSelectOver();
+            }
         };
 
         // scene
@@ -736,6 +775,9 @@
 
         const show_latent_shape_checkbox = document.getElementById("show_latent_shape");
         show_latent_shape_checkbox.addEventListener("change", function() {
+            if (!this.checked && is_selection_mode) {
+                set_selection_mode(false);
+            }
             if (this.checked) {
                 for (const sphere of latent_shape) {
                     scene.add(sphere);
@@ -769,38 +811,43 @@
         });
 
         window.addEventListener("keydown", on_keydown);
-        window.addEventListener("keyup", on_keyup);
         window.addEventListener("pointerdown", on_pointerdown);
+        window.addEventListener("pointermove", on_pointermove);
         window.addEventListener("pointerup", on_pointerup);
+        window.addEventListener("pointercancel", on_pointercancel);
         window.addEventListener("resize", on_window_resize);
 
         // eventlisteners of window
-        function on_keydown(event) {
-            if (event.key === "Shift" && !is_mouse_down) {
-                is_selection_mode = true;
-                orbit_controls.enabled = false;
-                document.body.style.cursor = "crosshair";
-                selection_helper.isDown = true;
-                selection_helper.element.style.display = "block";
-            } else if (event.key === "Escape") {
-                selected_shape = [];
-                selected_indices = [];
-                transform_controls.detach();
-                for (const vertex of latent_shape) {
-                    vertex.material.color.set(LATENT_SHAPE_SPHERE_COLOR)
-                }
-            } else if (event.key && event.key.toLowerCase() === "r") {
-                reset_camera();
+        function set_selection_mode(active, one_shot = false) {
+            is_selection_mode = active;
+            is_one_shot_selection = active && one_shot;
+            selection_pointer_id = null;
+            orbit_controls.enabled = !active;
+            if (one_shot) {
+                transform_controls.enabled = false;
+            } else if (!is_reconstructing) {
+                transform_controls.enabled = true;
+            }
+            document.body.style.cursor = active ? "crosshair" : "default";
+            selection_helper.isDown = false;
+            selection_helper.element.style.display = active ? "block" : "none";
+            if (!active && selection_helper.element.parentElement !== null) {
+                selection_helper.element.remove();
             }
         }
 
-        function on_keyup(event) {
-            if (event.key === "Shift") {
-                is_selection_mode = false;
-                orbit_controls.enabled = true;
-                document.body.style.cursor = "default";
-                selection_helper.isDown = false;
-                selection_helper.element.style.display = "none";
+        function arm_one_shot_selection() {
+            set_selection_mode(true, true);
+        }
+
+        function on_keydown(event) {
+            if (event.key === "Escape") {
+                if (is_one_shot_selection) {
+                    set_selection_mode(false);
+                }
+                replace_selected_shape([]);
+            } else if (event.key && event.key.toLowerCase() === "r") {
+                reset_camera();
             }
         }
 
@@ -814,67 +861,216 @@
             };
         }
 
-        function on_pointerdown(event) {
-            is_mouse_down = true;
-
-            if (is_reconstructing || !is_selection_mode) {
-                return
-            }
-
+        function pick_latent_vertex(event) {
             const ndc = pointerToNDC(event);
-            selection_box.startPoint.set(ndc.x, ndc.y, 0.5);
+            raycaster.setFromCamera(ndc, camera);
+            const visible_vertices = latent_shape.filter(
+                vertex => vertex.parent === scene && vertex.visible
+            );
+            const intersections = raycaster.intersectObjects(visible_vertices, false);
+            return intersections.length > 0 ? intersections[0].object : null;
         }
 
-        function on_pointerup(event) {
-            is_mouse_down = false;
-
-            if (is_reconstructing || !is_selection_mode ) {
-                return;
-            }
-
-            const ndc = pointerToNDC(event);
-            selection_box.endPoint.set(ndc.x, ndc.y, 0.5);
-
-            const selections = selection_box.select();
-
-            for (const selected_index of selected_indices) {
-                latent_shape[selected_index].material.color.set(LATENT_SHAPE_SPHERE_COLOR);
-            }
-
-            selected_shape = [];
+        function sync_selected_shape() {
             selected_indices = [];
-
-            for (const selection of selections) {
-                if (selection.name === LATENT_SHAPE) {
-                    let selected_index = -1;
-                    selected_shape.push(selection)
-                    selection.material.color.set(LATENT_SHAPE_SPHERE_SELECTED_COLOR);
-                    for (let i = 0; i < latent_shape.length; i++) {
-                        const vertex = latent_shape[i];
-                        if (
-                            Math.abs(selection.position.x - vertex.position.x) <= 0.001
-                            && Math.abs(selection.position.y - vertex.position.y) <= 0.001
-                            && Math.abs(selection.position.z - vertex.position.z) <= 0.001
-                        ) {
-                            selected_index = i;
-                            break;
-                        }
-                    }
-
-                    if (0 <= selected_index && selected_index < latent_shape.length) {
-                        selected_indices.push(selected_index);
-                    }
+            for (let i = 0; i < latent_shape.length; i++) {
+                const vertex = latent_shape[i];
+                const is_selected = selected_shape.includes(vertex);
+                vertex.material.color.set(
+                    is_selected ? LATENT_SHAPE_SPHERE_SELECTED_COLOR : LATENT_SHAPE_SPHERE_COLOR
+                );
+                if (is_selected) {
+                    selected_indices.push(i);
                 }
             }
 
             if (selected_shape.length > 0) {
                 first_selected_latent_shape = {
                     position: selected_shape[0].position.clone(),
-                    relative_positions: selected_shape.map(shape => shape.position.clone())
+                    relative_positions: selected_shape.map(shape => shape.position.clone()),
                 };
                 transform_controls.attach(selected_shape[0]);
             } else {
                 transform_controls.detach();
+            }
+        }
+
+        function replace_selected_shape(selections) {
+            selected_shape = selections.filter(selection => selection.name === LATENT_SHAPE);
+            sync_selected_shape();
+        }
+
+        function toggle_selected_vertex(vertex) {
+            const selected_index = selected_shape.indexOf(vertex);
+            if (selected_index >= 0) {
+                selected_shape.splice(selected_index, 1);
+            } else {
+                selected_shape.push(vertex);
+            }
+            sync_selected_shape();
+        }
+
+        function is_double_tap(pointer_type, event) {
+            if (
+                last_empty_tap === null
+                || last_empty_tap.pointer_type !== pointer_type
+                || event.timeStamp - last_empty_tap.time > DOUBLE_TAP_DELAY
+            ) {
+                return false;
+            }
+
+            return Math.hypot(
+                event.clientX - last_empty_tap.x,
+                event.clientY - last_empty_tap.y,
+            ) <= DOUBLE_TAP_DISTANCE;
+        }
+
+        function complete_tap(event) {
+            const candidate = tap_candidate;
+            tap_candidate = null;
+
+            if (
+                candidate === null
+                || candidate.pointer_id !== event.pointerId
+                || candidate.moved
+                || Math.hypot(
+                    event.clientX - candidate.x,
+                    event.clientY - candidate.y,
+                ) > TAP_MOVE_THRESHOLD
+                || active_pointer_ids.size > 1
+                || is_reconstructing
+            ) {
+                last_empty_tap = null;
+                return;
+            }
+
+            const hit_vertex = pick_latent_vertex(event);
+            if (candidate.started_on_gizmo || hit_vertex !== null) {
+                last_empty_tap = null;
+                if (hit_vertex !== null) {
+                    toggle_selected_vertex(hit_vertex);
+                }
+                return;
+            }
+
+            replace_selected_shape([]);
+            last_empty_tap = {
+                time: event.timeStamp,
+                x: event.clientX,
+                y: event.clientY,
+                pointer_type: candidate.pointer_type,
+            };
+        }
+
+        function on_pointerdown(event) {
+            if (event.target === renderer.domElement) {
+                active_pointer_ids.add(event.pointerId);
+
+                if (active_pointer_ids.size > 1) {
+                    tap_candidate = null;
+                    last_empty_tap = null;
+                    if (is_one_shot_selection) {
+                        set_selection_mode(false);
+                    }
+                } else if (!is_selection_mode && event.isPrimary && event.button === 0) {
+                    const started_on_gizmo = transform_controls.axis !== null;
+                    const hit_vertex = pick_latent_vertex(event);
+                    if (
+                        !started_on_gizmo
+                        && hit_vertex === null
+                        && is_double_tap(event.pointerType, event)
+                    ) {
+                        tap_candidate = null;
+                        last_empty_tap = null;
+                        arm_one_shot_selection();
+                        // TransformControls already saw this press; keep its pointerup cleanup active.
+                        transform_controls.enabled = true;
+                        selection_helper.isDown = true;
+                        selection_helper.onSelectStart(event);
+                    } else {
+                        tap_candidate = {
+                            pointer_id: event.pointerId,
+                            pointer_type: event.pointerType,
+                            x: event.clientX,
+                            y: event.clientY,
+                            moved: false,
+                            started_on_gizmo,
+                        };
+                    }
+                }
+            }
+
+            if (is_reconstructing || !is_selection_mode) {
+                return
+            }
+
+            if (
+                event.target !== renderer.domElement
+                || !event.isPrimary
+                || event.button !== 0
+            ) {
+                return;
+            }
+
+            selection_pointer_id = event.pointerId;
+            const ndc = pointerToNDC(event);
+            selection_box.startPoint.set(ndc.x, ndc.y, 0.5);
+        }
+
+        function on_pointermove(event) {
+            if (tap_candidate === null || tap_candidate.pointer_id !== event.pointerId) {
+                return;
+            }
+
+            if (
+                Math.hypot(
+                    event.clientX - tap_candidate.x,
+                    event.clientY - tap_candidate.y,
+                ) > TAP_MOVE_THRESHOLD
+            ) {
+                tap_candidate.moved = true;
+            }
+        }
+
+        function on_pointerup(event) {
+            const was_selection_mode = is_selection_mode;
+            if (!was_selection_mode) {
+                complete_tap(event);
+                active_pointer_ids.delete(event.pointerId);
+                return;
+            }
+
+            active_pointer_ids.delete(event.pointerId);
+
+            if (
+                is_reconstructing
+                || !is_selection_mode
+                || selection_pointer_id !== event.pointerId
+            ) {
+                return;
+            }
+
+            selection_pointer_id = null;
+            const should_exit_one_shot = is_one_shot_selection;
+            const ndc = pointerToNDC(event);
+            selection_box.endPoint.set(ndc.x, ndc.y, 0.5);
+
+            const selections = selection_box.select();
+            replace_selected_shape(selections);
+
+            if (should_exit_one_shot) {
+                set_selection_mode(false);
+            }
+        }
+
+        function on_pointercancel(event) {
+            active_pointer_ids.delete(event.pointerId);
+            if (is_one_shot_selection) {
+                set_selection_mode(false);
+            }
+            if (tap_candidate !== null && tap_candidate.pointer_id === event.pointerId) {
+                tap_candidate = null;
+                last_empty_tap = null;
             }
         }
 
@@ -1016,6 +1212,9 @@
         }
 
         async function load_random_shape() {
+            if (is_selection_mode) {
+                set_selection_mode(false);
+            }
             const load_random_shape_button = document.getElementById("load_random_shape_button");
             const reconstruct_button = document.getElementById("reconstruct_button");
             const container = document.getElementById("container");
@@ -1083,6 +1282,9 @@
             if (is_reconstructing) { // the button is showing "Stop" -> cancel the running job
                 cancelReconstruct();
                 return;
+            }
+            if (is_selection_mode) {
+                set_selection_mode(false);
             }
             if (latent_shape.length === 0) {
                 alert("There is no latent shape to reconstruct");

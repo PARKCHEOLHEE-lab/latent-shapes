@@ -53,6 +53,10 @@ latent_shapes.load_state_dict(states["state_dict_latent_shapes"])
 sdf_decoder = SDFDecoder(configuration=configuration)
 sdf_decoder.load_state_dict(states["state_dict_decoder"])
 
+# Keep this independent from reconstruct_stream.CHUNK_ROWS: 32K is the measured
+# MPS inference optimum, while 64K keeps the progressive preview cadence smooth.
+_STREAM_INFERENCE_BATCH_ROWS = 32768
+
 
 class ReconstructRequest(BaseModel):
     latent_shapes: List[List[float]]
@@ -136,7 +140,7 @@ def _make_stream_decoder(cage_xyz):
         xyz = torch.as_tensor(xyz_np, dtype=torch.float32, device=configuration.DEVICE)
         out = []
         with torch.inference_mode():
-            for chunk in xyz.split(65536):
+            for chunk in xyz.split(_STREAM_INFERENCE_BATCH_ROWS):
                 cxyz = torch.cat([chunk, cage_flat.expand(chunk.shape[0], -1)], dim=1)
                 out.append(sdf_decoder.forward(cxyz).squeeze(-1))
         return torch.cat(out).cpu().numpy()

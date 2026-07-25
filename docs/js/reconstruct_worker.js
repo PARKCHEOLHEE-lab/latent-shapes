@@ -19,12 +19,9 @@ ort.env.wasm.numThreads = 1;
 // Feeding a CONSTANT input shape is the key perf fix: it lets ORT compile the
 // WebGPU pipelines ONCE (cached + graph-captured) instead of recompiling every
 // run, which is the likely cause of the ~45s. Every batch is padded to this size.
-// lazy: 16384 (was 65536) trades ~2x total reconstruct time for a much sooner first
-//   mesh + smoother reveal. Measured R=128: first mesh 1023->241ms, reveal steps 5->15,
-//   total 8867->18245ms. The small batch is GPU-inefficient on the fine level (that is the
-//   2x). Upgrade path if total time matters: per-level batch — small for the coarse levels
-//   (sooner first mesh), large for the fine level (fast total).
-const FIXED_BATCH = 16384;
+// Measured on Apple M2 at R=128: 32768 completes about 12% sooner than 16384,
+// while its first preview still appears in about 265ms. 65536 is slower overall.
+const FIXED_BATCH = 32768;
 
 let sessionPromise = null;
 let usedProvider = null;
@@ -35,7 +32,7 @@ let cancelRequested = false;
 
 function getSession() {
   if (sessionPromise === null) {
-    const modelUrl = new URL("../models/decoder.onnx", import.meta.url).href;
+    const modelUrl = new URL("../models/decoder.onnx?v=2", import.meta.url).href;
 
     // A warmup run compiles the pipelines now (at load) rather than on the first
     // reconstruct, and — with graph capture — records the command sequence to replay.
