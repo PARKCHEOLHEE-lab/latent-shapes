@@ -390,6 +390,10 @@ test("both demos preserve camera controls and explain the mobile gestures", () =
     );
   }
 });
+const worker = readFileSync(
+  join(HERE, "..", "..", "..", "docs", "js", "reconstruct_worker.js"),
+  "utf8",
+);
 
 test("docs/index.html makes no server /api/ calls (fully static)", () => {
   assert.ok(!html.includes("/api/"), "must not reference any /api/ endpoint");
@@ -417,7 +421,10 @@ test("docs/index.html gives the faces-only mode a shaded white surface (wirefram
 });
 
 test("docs/index.html offloads reconstruction to a worker + loads latent data", () => {
-  assert.ok(html.includes("reconstruct_worker.js"), "spawns the reconstruction worker");
+  assert.ok(
+    html.includes("reconstruct_worker.js?v=9"),
+    "spawns the current reconstruction worker",
+  );
   assert.ok(html.includes("latent_shapes.json"), "loads the latent shapes data");
 });
 
@@ -466,10 +473,18 @@ test("docs/index.html replaces a stopped worker without accepting stale events",
 });
 
 test("reconstruct_worker.js wires the local ONNX backend", () => {
-  const worker = readFileSync(
-    join(HERE, "..", "..", "..", "docs", "js", "reconstruct_worker.js"),
-    "utf8",
-  );
   assert.ok(worker.includes("latent_backend.js"), "imports the local backend module");
-  assert.ok(worker.includes("decoder.onnx"), "loads the decoder model");
+  assert.ok(worker.includes("decoder.onnx?v=2"), "loads the current decoder model");
+});
+
+test("reconstruct_worker.js uses the measured 32K inference batch", () => {
+  assert.match(worker, /const FIXED_BATCH = 32768;/);
+  assert.ok(
+    worker.includes("freeDimensionOverrides: { n: FIXED_BATCH }"),
+    "the static WebGPU shape must match the measured batch",
+  );
+  assert.ok(
+    worker.includes("chunkRows: FIXED_BATCH"),
+    "preview progress must follow each completed inference batch",
+  );
 });

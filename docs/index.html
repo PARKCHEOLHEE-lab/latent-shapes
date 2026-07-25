@@ -542,7 +542,7 @@
         let _reqId = 0;
 
         function createReconstructWorker() {
-            const worker = new Worker("./js/reconstruct_worker.js?v=8", { type: "module" });
+            const worker = new Worker("./js/reconstruct_worker.js?v=9", { type: "module" });
             worker.onmessage = (event) => {
                 if (worker !== _worker) return;
                 const { id, result, error, cancelled, diag, progress } = event.data;

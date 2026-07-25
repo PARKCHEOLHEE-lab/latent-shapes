@@ -18,6 +18,7 @@
 # transitive deps of scikit-image, fastapi, and uvicorn.
 
 torch==2.13.0
+onnxconverter-common==1.16.0
 numpy==2.4.6
 scikit-image==0.26.0
 trimesh==4.12.2
