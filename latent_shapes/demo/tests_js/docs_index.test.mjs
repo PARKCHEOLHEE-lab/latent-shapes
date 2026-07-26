@@ -422,7 +422,7 @@ test("docs/index.html gives the faces-only mode a shaded white surface (wirefram
 
 test("docs/index.html offloads reconstruction to a worker + loads latent data", () => {
   assert.ok(
-    html.includes("reconstruct_worker.js?v=9"),
+    html.includes("reconstruct_worker.js?v=10"),
     "spawns the current reconstruction worker",
   );
   assert.ok(html.includes("latent_shapes.json"), "loads the latent shapes data");
@@ -475,6 +475,38 @@ test("docs/index.html replaces a stopped worker without accepting stale events",
 test("reconstruct_worker.js wires the local ONNX backend", () => {
   assert.ok(worker.includes("latent_backend.js"), "imports the local backend module");
   assert.ok(worker.includes("decoder.onnx?v=2"), "loads the current decoder model");
+});
+
+test("static demo warms only the initial ONNX worker", () => {
+  const initialWorker = html.slice(
+    html.indexOf("let _worker = createReconstructWorker();"),
+    html.indexOf("// reconstructViaWorker"),
+  );
+  assert.match(
+    initialWorker,
+    /let _worker = createReconstructWorker\(\);\s*_worker\.postMessage\(\{ warmup: true \}\);/,
+    "the initial worker must receive a warmup request before reconstruction",
+  );
+
+  const cancelReconstruct = html.slice(
+    html.indexOf("function cancelReconstruct()"),
+    html.indexOf("const LATENT_SHAPE"),
+  );
+  assert.doesNotMatch(
+    cancelReconstruct,
+    /warmup/,
+    "Stop must not start another warmup on the replacement worker",
+  );
+
+  const workerMessageStart = worker.slice(
+    worker.indexOf("self.onmessage"),
+    worker.indexOf("const { id, params }"),
+  );
+  assert.match(
+    workerMessageStart,
+    /if \(event\.data\.warmup\)\s*\{[\s\S]*getSession\(\)[\s\S]*return;[\s\S]*\}/,
+    "a warmup request must use the existing memoized session path",
+  );
 });
 
 test("reconstruct_worker.js uses the measured 32K inference batch", () => {

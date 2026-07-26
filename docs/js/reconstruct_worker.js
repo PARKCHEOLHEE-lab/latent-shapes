@@ -78,6 +78,11 @@ async function runDecoder(input, N) {
 }
 
 self.onmessage = async (event) => {
+  if (event.data.warmup) {
+    // The first real request awaits this same promise and reports any failure.
+    getSession().catch(() => {});
+    return;
+  }
   if (event.data.cancel) { cancelRequested = true; return; } // stop the in-flight run
   const { id, params } = event.data;
   cancelRequested = false; // fresh run
